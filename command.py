@@ -24,8 +24,8 @@ def cli(verbosity):
 @click.option('--usedtraitcolumns','-utc', default=None, multiple=True, show_default=True,help='Used trait columns')
 @click.option('--wgd', '-w', default=None, show_default=True,help='WGD data file name')
 @click.option('--output', '-o', default='Plottree.pdf', show_default=True,help='Output file name')
-def initree(tree,polar,trait,usedtraitcolumns,wgd,output):
-    plottree(tree,polar,trait,usedtraitcolumns,wgd,output)
+def initree(**kwargs):
+    TB = plottree(**kwargs)
 
 if __name__ == "__main__":
     cli()

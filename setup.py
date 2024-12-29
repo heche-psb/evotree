@@ -17,7 +17,7 @@ setup(
     description='Python package and CLI for processing phylogenetic tree',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    py_modules=['cmd'],
+    py_modules=['command'],
     include_package_data=True,
     install_requires=[
        'biopython>=1.76',

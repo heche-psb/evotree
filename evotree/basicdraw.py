@@ -173,8 +173,8 @@ class TreeBuilder:
                 heights = np.full(count,height)
                 widths = np.full(count,width/count)
                 range_ = np.arange(count)
-                print(xcoors[-1]+width/count)
-                print(xcoor+width)
+                #print(xcoors[-1]+width/count)
+                #print(xcoor+width)
                 for x,y,h,w,ind in zip(xcoors,ycoors,heights,widths,range_):
                     rectangle = Rectangle((x,y),w,h,angle=0,fc=cmap(ind/count),ec="None",lw=0)
                     self.ax.add_patch(rectangle)
@@ -551,7 +551,7 @@ def stringttophylo(string):
     tree = Phylo.read(handle, "newick")
     return tree
 
-def plottree(tree,polar,trait,usedtraitcolumns,wgd,output):
+def plottree(tree=None,polar=None,trait=(),usedtraitcolumns=(),wgd=None,output='Plottree.pdf'):
     if tree is None:
         Tree = stringttophylo(Test_tree)
     else:
@@ -561,11 +561,11 @@ def plottree(tree,polar,trait,usedtraitcolumns,wgd,output):
         TB.polardraw(polar,fs=(30,30),topologylw=3,userfig=None,userax=None,tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=False,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',plotfulllengthscale=False,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='r',scalelw=3,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='--')
         #TB.highlightnodepolar(nodes=[('Apostasia_shenzhenica','Asparagus_setaceus')],colors=['r'],nodesizes=[],nodealphas=[],nodemarkers=[])
         TB.drawwgdpolar(wgd=wgd,cr='r',al=0.6,lw=4)
-        TB.saveplot(output)
     else:
         TB.basicdraw(fs=(15,60),topologylw=3,tiplabelxoffset=0.02,tiplabelyoffset=0,nodelabelxoffset=0.02,nodelabelyoffset=0,userfig=None,userax=None,shownodelabel=False,showtiplabel=True,plottipnode=False,plotnnode=False,userbranchcolor=None,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',plotfulllengthscale=True,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='k',scalelw=None,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=None,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k')
         #TB.highlightnode(nodes=[('Apostasia_shenzhenica','Asparagus_setaceus')],colors=['r'],nodesizes=[],nodealphas=[],nodemarkers=[])
         TB.highlightclade(clades=[('Apostasia_shenzhenica','Asparagus_setaceus')],facecolors=[],alphas=[],edgecolors=[],lws=[])
         TB.drawtrait(trait=trait,offset=0.3,usedata=usedtraitcolumns)
         TB.drawwgd(wgd=wgd,cr='r',al=0.6)
-        TB.saveplot(output)
+    if output is not None: TB.saveplot(output)
+    return TB
