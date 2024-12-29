@@ -1,0 +1,6 @@
+biopython>=1.76
+click>=7.1.2
+pandas>=1.4.4
+rich>=12.5.1
+numpy>=1.19.0
+matplotlib>=3.2.2
