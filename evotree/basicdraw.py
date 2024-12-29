@@ -4,6 +4,7 @@ from io import StringIO
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 from matplotlib.patches import Rectangle
+from matplotlib import colors
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.colors import to_rgba
 import copy
@@ -103,6 +104,40 @@ class TreeBuilder:
                 exit(0)
             thetacoor,rcoor = self.allnodes_thetacoordinates[node],self.allnodes_rcoordinates[node]
             self.ax.plot((thetacoor,thetacoor),(rcoor,rcoor),marker=marker,alpha=al,markersize=ns,color=cr)
+    def highlightcladepolar(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=True,leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None):
+        if len(clades) == 0:
+            return
+        if facecolors == []:
+            facecolors = ['blue' for i in range(len(clades))]
+        if alphas == []:
+            alphas = np.full(len(clades),1)
+        if lws == []:
+            lws = np.full(len(clades),self.topologylw)
+        for clade,fcr,al,lw in zip(clades,facecolors,alphas,lws):
+            if type(clade) is not str:
+                clade = self.tree.common_ancestor(*clade).name
+            thetacs = [self.allnodes_thetacoordinates[tip.name] for tip in findcladebyname(self.tree,clade).get_terminals()]
+            rcs = [self.allnodes_rcoordinates[tip.name] for tip in findcladebyname(self.tree,clade).get_terminals()]
+            rcoor = self.allnodes_rcoordinates[clade]
+            thetacoor = min(thetacs)
+            width = max(rcs) - rcoor
+            height = max(thetacs) - min(thetacs)
+            if leftoffset is not None: rcoor += self.Total_length*leftoffset
+            if rightoffset is not None: width += self.Total_length*rightoffset
+            if bottomoffset is not None: thetacoor += (self.endtheta-self.starttheta)*bottomoffset
+            if topoffset is not None: height += (self.endtheta-self.starttheta)*topoffset
+            if gradual:
+                color_limits_rgba = [to_rgba(fcr, alpha=0.1),to_rgba(fcr, alpha=al)]
+                cmap = LinearSegmentedColormap.from_list("alpha_gradient",color_limits_rgba)
+                r = np.linspace(rcoor, rcoor + width, 100)
+                theta = np.linspace(thetacoor, thetacoor + height, 360)
+                R, Theta = np.meshgrid(r, theta)
+                self.ax.pcolormesh(Theta, R, R, cmap=cmap, shading='auto')
+            else:
+                r = np.linspace(rcoor, rcoor + width, 100)
+                theta = np.linspace(thetacoor, thetacoor + height, 360)
+                R, Theta = np.meshgrid(r, theta)
+                self.ax.pcolormesh(Theta, R, np.ones_like(R), color=fcr, shading='auto',alpha=al)
     def basicdraw(self,fs=(6,6),topologylw=3,tiplabelxoffset=0.1,tiplabelyoffset=0,nodelabelxoffset=0.1,nodelabelyoffset=0,userfig=None,userax=None,shownodelabel=True,showtiplabel=True,plottipnode=True,plotnnode=True,userbranchcolor=None,plotnodeuncertainty=False,nucalpha=0.5,nuccolor='blue',nulw=4,plotfulllengthscale=True,scaleinipoint=(0,-0.5),scaleendpoint=(1,-0.5),scalecolor='k',scalelw=2,tiplabelsize=1.5,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=1.5,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=None,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k'):
         logging.info("Plotting tree")
         if userfig is None and userax is None:
@@ -144,18 +179,16 @@ class TreeBuilder:
                 exit(0)
             xcoor,ycoor = self.allnodes_xcoordinates[node],self.allnodes_ycoordinates[node]
             self.ax.plot((xcoor,xcoor),(ycoor,ycoor),marker=marker,alpha=al,markersize=ns,color=cr)
-    def highlightclade(self,clades=[],facecolors=[],alphas=[],edgecolors=[],lws=[],gradual=True):
+    def highlightclade(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=True,leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None):
         if len(clades) == 0:
             return
         if facecolors == []:
             facecolors = ['gray' for i in range(len(clades))]
-        if edgecolors == []:
-            edgecolors = ['gray' for i in range(len(clades))]
         if alphas == []:
             alphas = np.full(len(clades),0.5)
         if lws == []:
             lws = np.full(len(clades),self.topologylw)
-        for clade,fcr,ecr,al,lw in zip(clades,facecolors,edgecolors,alphas,lws): # draw rectangles
+        for clade,fcr,al,lw in zip(clades,facecolors,alphas,lws):
             if type(clade) is not str:
                 clade = self.tree.common_ancestor(*clade).name 
             xcoor = self.allnodes_xcoordinates[clade]
@@ -164,23 +197,23 @@ class TreeBuilder:
             ycoor = min(ycs)
             height = max(ycs) - min(ycs)
             width = max(xcs) - xcoor
+            if leftoffset is not None: xcoor += self.Total_length*leftoffset
+            if rightoffset is not None: width += self.Total_length*rightoffset
+            if bottomoffset is not None: ycoor += len(self.tips)*bottomoffset
+            if topoffset is not None: height += len(self.tips)*topoffset
+            resolution_x,resolution_y = 2000,2000
             if gradual:
-                count = 10
-                color_limits_rgba = [to_rgba(fcr, alpha=0),to_rgba(fcr, alpha=1)]
+                color_limits_rgba = [to_rgba(fcr, alpha=0.1),to_rgba(fcr, alpha=1)]
                 cmap = LinearSegmentedColormap.from_list("alpha_gradient",color_limits_rgba)
-                xcoors = [xcoor+width/count*ind for ind in range(count)]
-                ycoors = np.full(count,ycoor)
-                heights = np.full(count,height)
-                widths = np.full(count,width/count)
-                range_ = np.arange(count)
-                #print(xcoors[-1]+width/count)
-                #print(xcoor+width)
-                for x,y,h,w,ind in zip(xcoors,ycoors,heights,widths,range_):
-                    rectangle = Rectangle((x,y),w,h,angle=0,fc=cmap(ind/count),ec="None",lw=0)
-                    self.ax.add_patch(rectangle)
+                gradient = np.linspace(0, 1, resolution_x).reshape(1, -1)
+                gradient = np.repeat(gradient, resolution_y, axis=0)
+                self.ax.imshow(gradient,extent=(xcoor, xcoor+width, ycoor, ycoor+height), origin="lower", aspect="auto", cmap=cmap, interpolation="antialiased")
             else:
-                rectangle = Rectangle((xcoor,ycoor),width,height,angle=0,fc=fcr,ec=ecr,lw=lw,alpha=al)
-                self.ax.add_patch(rectangle)
+                color_rgb = np.array(colors.to_rgb(fcr))
+                color_array = np.ones((resolution_x, resolution_y, 4))
+                color_array[..., :3] = color_rgb
+                color_array[..., 3] = al
+                self.ax.imshow(color_array,extent=(xcoor, xcoor+width, ycoor, ycoor+height),origin="lower",aspect="auto")
     def saveplot(self,outpath):
         self.fig.tight_layout()
         self.fig.savefig(outpath)
@@ -560,12 +593,13 @@ def plottree(tree=None,polar=None,trait=(),usedtraitcolumns=(),wgd=None,output='
     if polar is not None:
         TB.polardraw(polar,fs=(30,30),topologylw=3,userfig=None,userax=None,tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=False,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',plotfulllengthscale=False,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='r',scalelw=3,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='--')
         #TB.highlightnodepolar(nodes=[('Apostasia_shenzhenica','Asparagus_setaceus')],colors=['r'],nodesizes=[],nodealphas=[],nodemarkers=[])
+        #TB.highlightcladepolar(clades=[('Apostasia_shenzhenica','Asparagus_setaceus')],facecolors=[],alphas=[],lws=[],leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None)
         TB.drawwgdpolar(wgd=wgd,cr='r',al=0.6,lw=4)
     else:
         TB.basicdraw(fs=(15,60),topologylw=3,tiplabelxoffset=0.02,tiplabelyoffset=0,nodelabelxoffset=0.02,nodelabelyoffset=0,userfig=None,userax=None,shownodelabel=False,showtiplabel=True,plottipnode=False,plotnnode=False,userbranchcolor=None,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',plotfulllengthscale=True,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='k',scalelw=None,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=None,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k')
         #TB.highlightnode(nodes=[('Apostasia_shenzhenica','Asparagus_setaceus')],colors=['r'],nodesizes=[],nodealphas=[],nodemarkers=[])
-        TB.highlightclade(clades=[('Apostasia_shenzhenica','Asparagus_setaceus')],facecolors=[],alphas=[],edgecolors=[],lws=[])
+        #TB.highlightclade(clades=[('Apostasia_shenzhenica','Asparagus_setaceus')],facecolors=[],alphas=[],lws=[],leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None)
         TB.drawtrait(trait=trait,offset=0.3,usedata=usedtraitcolumns)
         TB.drawwgd(wgd=wgd,cr='r',al=0.6)
     if output is not None: TB.saveplot(output)
-    return TB
+    return TB,Tree

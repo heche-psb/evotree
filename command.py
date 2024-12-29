@@ -25,7 +25,7 @@ def cli(verbosity):
 @click.option('--wgd', '-w', default=None, show_default=True,help='WGD data file name')
 @click.option('--output', '-o', default='Plottree.pdf', show_default=True,help='Output file name')
 def initree(**kwargs):
-    TB = plottree(**kwargs)
+    TB,Tree = plottree(**kwargs)
 
 if __name__ == "__main__":
     cli()
