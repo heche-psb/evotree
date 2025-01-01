@@ -52,7 +52,7 @@ def findcladebyname(tree,name):
     return next(tree.find_clades(name))
 
 class TreeBuilder:
-    def __init__(self, tree):
+    def __init__(self, tree, topologylw=3,userfig=None,userax=None,fs=(10,10),tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,tiplabelxoffset=0.02,tiplabelyoffset=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=False,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',nodelabelxoffset=0.02,nodelabelyoffset=0):
         self.tree = tree
         self.root = tree.root
         self.root_depth_size_dic,self.maxi_depth,self.depths_sizeordered,self.clades_size,self.clades_alltips = getdepths_sizes(self.root)
@@ -61,21 +61,33 @@ class TreeBuilder:
         self.checkdupids()
         self.Total_length = gettotallength(self.tree)
         self.Total_species = gettotalspecies(self.tree)
+        self.topologylw = topologylw;self.userfig = userfig;self.userax = userax
+        self.fs=fs;self.tiplabelroffset = tiplabelroffset;self.tiplabelthetaoffset = tiplabelthetaoffset;self.starttheta = starttheta
+        self.tiplabelxoffset = tiplabelxoffset;self.tiplabelyoffset = tiplabelyoffset;self.showtiplabel = showtiplabel
+        self.plottipnode = plottipnode;self.shownodelabel = shownodelabel;self.plotnnode = plotnnode;self.nodelabelroffset = nodelabelroffset
+        self.nodelabelthetaoffset = nodelabelthetaoffset;self.plotnodeuncertainty = plotnodeuncertainty;self.nucalpha = nucalpha
+        self.nuccolor = nuccolor;self.userbranchcolor = userbranchcolor;self.tiplabelalign = tiplabelalign;self.nodelabelalign = nodelabelalign
+        self.tiplabelsize = tiplabelsize;self.tiplabelalpha = tiplabelalpha;self.tiplabelcolor = tiplabelcolor;self.tipnodesize = tipnodesize
+        self.tipnodecolor = tipnodecolor;self.tipnodealpha = tipnodealpha;self.tiplabelstyle = tiplabelstyle;self.tipnodemarker = tipnodemarker
+        self.nodelabelsize = nodelabelsize;self.nodelabelalpha = nodelabelalpha;self.nodelabelcolor = nodelabelcolor
+        self.nnodesize = nnodesize; self.nnodecolor = nnodecolor;self.nnodealpha = nnodealpha;self.nodelabelstyle = nodelabelstyle
+        self.nnodemarker = nnodemarker;self.nodelabelxoffset = nodelabelxoffset;self.nodelabelyoffset = nodelabelyoffset
     def checkdupids(self):
         node_ids = [node.name for node in self.nodes if node.name is not None]
         tip_ids = [tip.name for tip in self.tips if tip.name is not None]
         all_ids = node_ids + tip_ids
         assert len(all_ids) == len(set(all_ids))
-    def polardraw(self,polar,fs=(6,6),topologylw=3,userfig=None,userax=None,starttheta=0,tiplabelroffset=0.1,tiplabelthetaoffset=0,showtiplabel=True,plottipnode=True,shownodelabel=True,plotnnode=True,nodelabelroffset=0.1,nodelabelthetaoffset=0,plotnodeuncertainty=False,nucalpha=0.5,nuccolor='blue',nuclw=4,userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',plotfulllengthscale=True,scaleinipoint=(0,0),scaleendpoint=(180,1),scalecolor='k',scalelw=2,tiplabelsize=1.5,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=3,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=1.5,nodelabelalpha=1,nodelabelcolor='k',nnodesize=3,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4,fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='--'):
+    def polardraw(self,polar=355):
         logging.info("Plotting circular tree")
-        if userfig is None and userax is None:
-            fig, ax = plt.subplots(1,1,figsize=fs,subplot_kw={'projection': 'polar'})
-        self.fig,self.ax = fig,ax
-        self.starttheta,self.endtheta = starttheta,polar
-        self.drawtipspolar(polar,tiplabelroffset,tiplabelthetaoffset,plotnode=plottipnode,showlabel=showtiplabel,starttheta=starttheta,labelalign=tiplabelalign,labelsize=tiplabelsize,labelalpha=tiplabelalpha,labelcolor=tiplabelcolor,nodesize=tipnodesize,nodecolor=tipnodecolor,nodealpha=tipnodealpha,labelstyle=tiplabelstyle,nodemarker=tipnodemarker)
-        self.drawnodespolar(nodelabelroffset,nodelabelthetaoffset,showlabel=shownodelabel,plotnode=plotnnode,pnuc=plotnodeuncertainty,nuca=nucalpha,nucc=nuccolor,labelalign=nodelabelalign,labelsize=nodelabelsize,labelalpha=nodelabelalpha,labelcolor=nodelabelcolor,nodesize=nnodesize,nodecolor=nnodecolor,nodealpha=nnodealpha,labelstyle=nodelabelstyle,nodemarker=nnodemarker,nuclw=nuclw)
-        self.drawlinespolar(ubr=userbranchcolor,topologylw=topologylw)
-        self.drawscalepolar(plotfulllengthscale=plotfulllengthscale,inipoint=scaleinipoint,endpoint=scaleendpoint,cr=scalecolor,lw=scalelw,fullscalelw=fullscalelw,fullscalexticks=fullscalexticks,fullscalecolor=fullscalecolor,fullscalels=fullscalels)
+        self.endtheta = polar
+        if self.userfig is None and self.userax is None:
+            fig, ax = plt.subplots(1,1,figsize=self.fs,subplot_kw={'projection': 'polar'})
+            self.fig,self.ax = fig,ax
+        else:
+            self.fig,self.ax = self.userfig,self.userax
+        self.drawtipspolar()
+        self.drawnodespolar()
+        self.drawlinespolar()
         self.scaler_theta = abs(self.endtheta-self.starttheta)/100
         thetamin,thetamax = self.starttheta-self.scaler_theta,min([360,self.endtheta+self.scaler_theta])
         if thetamax-thetamin >=360: thetamax = 360 + thetamin
@@ -138,28 +150,26 @@ class TreeBuilder:
                 theta = np.linspace(thetacoor, thetacoor + height, 360)
                 R, Theta = np.meshgrid(r, theta)
                 self.ax.pcolormesh(Theta, R, np.ones_like(R), color=fcr, shading='auto',alpha=al)
-    def basicdraw(self,fs=(6,6),topologylw=3,tiplabelxoffset=0.1,tiplabelyoffset=0,nodelabelxoffset=0.1,nodelabelyoffset=0,userfig=None,userax=None,shownodelabel=True,showtiplabel=True,plottipnode=True,plotnnode=True,userbranchcolor=None,plotnodeuncertainty=False,nucalpha=0.5,nuccolor='blue',nulw=4,plotfulllengthscale=True,scaleinipoint=(0,-0.5),scaleendpoint=(1,-0.5),scalecolor='k',scalelw=2,tiplabelsize=1.5,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=1.5,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=None,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k'):
+    def basicdraw(self):
         logging.info("Plotting tree")
-        if userfig is None and userax is None:
-            fig, ax = plt.subplots(1,1,figsize=fs)
+        if self.userfig is None and self.userax is None:
+            fig, ax = plt.subplots(1,1,figsize=self.fs)
         else:
             fig, ax = userfig, userax
         #ax.set_ylim(0,len(self.tips)+1)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        ax.set_xticks([])  # Remove x ticks
-        ax.set_yticks([])  # Remove y ticks
-        ax.set_xticklabels([])  # Remove x tick labels
-        ax.set_yticklabels([])  # Remove y tick labels
         self.fig,self.ax = fig,ax
-        self.drawtips(tiplabelxoffset,tiplabelyoffset,plotnode=plottipnode,showlabel=showtiplabel,labelsize=tiplabelsize,labelalpha=tiplabelalpha,labelcolor=tiplabelcolor,nodesize=tipnodesize,nodecolor=tipnodecolor,nodealpha=tipnodealpha,labelstyle=tiplabelstyle,nodemarker=tipnodemarker)
-        self.drawnodes(nodelabelxoffset,nodelabelyoffset,showlabel=shownodelabel,plotnode=plotnnode,pnuc=plotnodeuncertainty,nuca=nucalpha,nucc=nuccolor,nulw=nulw,labelsize=nodelabelsize,labelalpha=nodelabelalpha,labelcolor=nodelabelcolor,nodesize=nnodesize,nodecolor=nnodecolor,nodealpha=nnodealpha,labelstyle=nodelabelstyle,nodemarker=nnodemarker)
-        self.drawlines(ubr=userbranchcolor,topologylw=topologylw)
-        self.scaler_y = len(self.tips)/1000
-        ymin,ymax = self.drawscale(plotfulllengthscale=plotfulllengthscale,inipoint=scaleinipoint,endpoint=scaleendpoint,cr=scalecolor,lw=scalelw,fullscalelw=fullscalelw,fullscaley=fullscaley,fullscalexticks=fullscalexticks,fullscalecolor=fullscalecolor,fullscaleticklw=fullscaleticklw,fullscaletickcolor=fullscaletickcolor,fullscaletickheight=fullscaletickheight,fullscaleticklabels=fullscaleticklabels,fullscaleticklabelsize=fullscaleticklabelsize,fullscaleticklabelcolor=fullscaleticklabelcolor)
-        ax.set_ylim(ymin-self.scaler_y,ymax+self.scaler_y)
+        self.ax.spines['top'].set_visible(False)
+        self.ax.spines['right'].set_visible(False)
+        self.ax.spines['left'].set_visible(False)
+        self.ax.spines['bottom'].set_visible(False)
+        self.ax.set_xticks([])  # Remove x ticks
+        self.ax.set_yticks([])  # Remove y ticks
+        self.ax.set_xticklabels([])  # Remove x tick labels
+        self.ax.set_yticklabels([])  # Remove y tick labels
+        self.drawtips()
+        self.drawnodes()
+        self.drawlines()
+        #self.drawlines(ubr=userbranchcolor,topologylw=topologylw)
     def highlightnode(self,nodes=[],colors=[],nodesizes=[],nodealphas=[],nodemarkers=[]):
         if len(nodes) == 0:
             return
@@ -218,13 +228,11 @@ class TreeBuilder:
         self.fig.tight_layout()
         self.fig.savefig(outpath)
         plt.close()
-    def drawtipspolar(self,polar,labeloffset,labelthetaoffset,plotnode=False,showlabel=True,starttheta=0,labelalign='left',labelsize=1.5,labelstyle='normal',labelalpha=1,labelcolor='k',nodesize=3,nodecolor='k',nodealpha=1,nodemarker='o'):
-        self.labelsize = labelsize
+    def drawtipspolar(self):
         tips_rcoordinates = {tip.name:self.root.distance(tip) for tip in self.tips}
-        self.polar = polar
-        self.Total_theta = self.polar/180*np.pi
-        self.per_sp_theta = (polar-starttheta)/180*np.pi/(len(self.tips)-1)
-        thetacoordinate = starttheta/180*np.pi - self.per_sp_theta
+        self.Total_theta = self.endtheta/180*np.pi
+        self.per_sp_theta = (self.endtheta-self.starttheta)/180*np.pi/(len(self.tips)-1)
+        thetacoordinate = self.starttheta/180*np.pi - self.per_sp_theta
         tips_thetacoordinates = {}
         clades_sizeordered = self.depths_sizeordered[1]
         for clades_size in clades_sizeordered:
@@ -236,73 +244,71 @@ class TreeBuilder:
             else:
                 thetacoordinate,tips_thetacoordinates = polarrecursionuntilalltip(clade,thetacoordinate,tips_thetacoordinates,self.clades_size,self.per_sp_theta)
         for tip in sorted(self.tips,key=lambda x:tips_thetacoordinates[x.name]):
-            if plotnode: self.ax.plot(tips_thetacoordinates[tip.name],tips_rcoordinates[tip.name],marker=nodemarker,markersize=nodesize,color=nodecolor,alpha=nodealpha)
-            if showlabel:
+            if self.plottipnode: self.ax.plot(tips_thetacoordinates[tip.name],tips_rcoordinates[tip.name],marker=self.tipnodemarker,markersize=self.tipnodesize,color=self.tipnodecolor,alpha=self.tipnodealpha)
+            if self.showtiplabel:
                 angle=thetatovalue(tips_thetacoordinates[tip.name])
                 if angle <= 90 or angle > 270:
                     rotation = angle
-                    labelalign_ = labelalign
+                    labelalign_ = self.tiplabelalign
                 else:
                     rotation = angle + 180
-                    if labelalign == 'left': labelalign_ = 'right'
-                    if labelalign == 'right': labelalign_ = 'left'
-                text = self.ax.text(tips_thetacoordinates[tip.name]+self.Total_theta*labelthetaoffset,tips_rcoordinates[tip.name]+self.Total_length*labeloffset,tip.name,rotation=rotation,rotation_mode='anchor',va='center',ha=labelalign_,fontsize=labelsize,fontstyle=labelstyle,color=labelcolor,alpha=labelalpha)
+                    if self.tiplabelalign == 'left': labelalign_ = 'right'
+                    if self.tiplabelalign == 'right': labelalign_ = 'left'
+                text = self.ax.text(tips_thetacoordinates[tip.name]+self.Total_theta*self.tiplabelthetaoffset,tips_rcoordinates[tip.name]+self.Total_length*self.tiplabelroffset,tip.name,rotation=rotation,rotation_mode='anchor',va='center',ha=labelalign_,fontsize=self.tiplabelsize,fontstyle=self.tiplabelstyle,color=self.tiplabelcolor,alpha=self.tiplabelalpha)
         self.tips_thetacoordinates,self.tips_rcoordinates = tips_thetacoordinates,tips_rcoordinates
         self.allnodes_thetacoordinates,self.allnodes_rcoordinates = {**tips_thetacoordinates},{**tips_rcoordinates}
-    def drawnodespolar(self,labelroffset,labelthetaoffset,showlabel=False,plotnode=False,pnuc=False,nuca=0.5,nucc='blue',labelalign='left',labelsize=1.5,labelalpha=1,labelcolor='k',nodesize=3,nodecolor='k',nodealpha=1,labelstyle='normal',nodemarker='o',nuclw=4):
+    def drawnodespolar(self):
         self.nodes_rcoordinates = {}
         self.nodes_thetacoordinates = {}
-        self.nodesize = nodesize
-        if pnuc:
+        if self.plotnodeuncertainty:
             logging.info("Adding node uncertainty")
         for node in self.nodes:
             children = findfirstchildren(node)
             self.nodes_thetacoordinates[node.name] = recursiongetycor(children,self.tips_thetacoordinates)
             self.nodes_rcoordinates[node.name] = self.root.distance(node)
-            if plotnode: self.ax.plot(self.nodes_thetacoordinates[node.name],self.nodes_rcoordinates[node.name],marker=nodemarker,markersize=nodesize,color=nodecolor,alpha=nodealpha)
+            if self.plotnnode: self.ax.plot(self.nodes_thetacoordinates[node.name],self.nodes_rcoordinates[node.name],marker=self.nnodemarker,markersize=self.nnodesize,color=self.nnodecolor,alpha=self.nnodealpha)
             angle=thetatovalue(self.nodes_thetacoordinates[node.name])
             if angle <= 90 or angle > 270:
                 rotation = angle
-                labelalign_ = labelalign
+                labelalign_ = self.nodelabelalign
             else:
                 rotation = angle + 180
-                if labelalign == 'left': labelalign_ = 'right'
-                if labelalign == 'right': labelalign_ = 'left'
-            if showlabel: self.ax.text(self.nodes_thetacoordinates[node.name]+self.Total_theta*labelthetaoffset,self.nodes_rcoordinates[node.name]+self.Total_length*labelroffset,node.name,ha=labelalign_,va='center',rotation_mode='anchor',rotation=rotation,fontsize=labelsize,alpha=labelalpha,color=labelcolor,fontstyle=labelstyle)
-            if pnuc:
+                if self.nodelabelalign == 'left': labelalign_ = 'right'
+                if self.nodelabelalign == 'right': labelalign_ = 'left'
+            if self.shownodelabel: self.ax.text(self.nodes_thetacoordinates[node.name]+self.Total_theta*self.nodelabelthetaoffset,self.nodes_rcoordinates[node.name]+self.Total_length*self.nodelabelroffset,node.name,ha=labelalign_,va='center',rotation_mode='anchor',rotation=rotation,fontsize=self.nodelabelsize,alpha=self.nodelabelalpha,color=self.nodelabelcolor,fontstyle=self.nodelabelstyle)
+            if self.plotnodeuncertainty:
                 nodeuncertainty = getnuc(node)
                 if None in nodeuncertainty:
                     continue
                 nodeuncertainty = -np.array(nodeuncertainty)+self.Total_length
-                self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(nodeuncertainty[1],nodeuncertainty[0]),lw=nuclw,color=nucc,alpha=nuca)
+                self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(nodeuncertainty[1],nodeuncertainty[0]),lw=self.nuclw,color=nucc,alpha=self.nucalpha)
         self.allnodes_thetacoordinates = {**self.allnodes_thetacoordinates,**self.nodes_thetacoordinates}
         self.allnodes_rcoordinates = {**self.allnodes_rcoordinates,**self.nodes_rcoordinates}
-    def drawlinespolar(self,ubr=None,rbr=False,topologylw=3):
-        self.topologylw = topologylw
-        if ubr is None:
+    def drawlinespolar(self,rbr=False):
+        if self.userbranchcolor is None:
             branch_colors = {**{tip.name:'k' for tip in self.tips},**{node.name:'k' for node in self.nodes}}
             if rbr:
                 for key in branch_colors: branch_colors[key] = random_color_hex()
         else:
-            branch_colors = getubr(ubr)
+            branch_colors = getubr(self.userbranchcolor)
         for tip in self.tips:
             firstparent = getfirstparent(tip,self.nodes)
             segment_length = self.root.distance(tip)-self.root.distance(firstparent)
             rmin,rmax = self.root.distance(firstparent),self.root.distance(tip)
-            self.ax.plot((self.tips_thetacoordinates[tip.name],self.tips_thetacoordinates[tip.name]),(rmin,rmax),color=branch_colors.get(tip.name,'k'),lw=topologylw)
+            self.ax.plot((self.tips_thetacoordinates[tip.name],self.tips_thetacoordinates[tip.name]),(rmin,rmax),color=branch_colors.get(tip.name,'k'),lw=self.topologylw)
             thetamin, thetamax = sorted([self.tips_thetacoordinates[tip.name],self.nodes_thetacoordinates[firstparent.name]])
             thetas = np.linspace(thetamin, thetamax, 1000)
-            self.ax.plot(thetas,np.full(len(thetas),self.nodes_rcoordinates[firstparent.name]),color=branch_colors.get(tip.name,'k'),lw=topologylw)
+            self.ax.plot(thetas,np.full(len(thetas),self.nodes_rcoordinates[firstparent.name]),color=branch_colors.get(tip.name,'k'),lw=self.topologylw)
         for node in self.nodes:
             if self.root.distance(node) == 0: continue
             firstparent = getfirstparent(node,self.nodes)
             segment_length = self.root.distance(node)-self.root.distance(firstparent)
             rmin,rmax = self.root.distance(firstparent),self.root.distance(node)
-            self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(rmin,rmax),color=branch_colors.get(node.name,'k'),lw=topologylw)
+            self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(rmin,rmax),color=branch_colors.get(node.name,'k'),lw=self.topologylw)
             thetamin,thetamax = sorted([self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[firstparent.name]])
             thetas = np.linspace(thetamin, thetamax, 100)
-            self.ax.plot(thetas,np.full(len(thetas),self.nodes_rcoordinates[firstparent.name]),color=branch_colors.get(node.name,'k'),lw=topologylw)
-    def drawscalepolar(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),cr='k',lw=1.5,fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='--'):
+            self.ax.plot(thetas,np.full(len(thetas),self.nodes_rcoordinates[firstparent.name]),color=branch_colors.get(node.name,'k'),lw=self.topologylw)
+    def drawscalepolar(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='-'):
         if plotfulllengthscale:
             rmin,rmax = 0,self.Total_length
             if fullscalelw is None: fullscalelw=self.topologylw
@@ -316,37 +322,37 @@ class TreeBuilder:
             degree1,r1 = inipoint
             degree2,r2 = endpoint
             theta1,theta2 = degree1/180*np.pi,degree2/180*np.pi
-            self.ax.plot((theta1,theta2),(r1,r2),color=cr,lw=lw) 
-    def drawscale(self,plotfulllengthscale=True,inipoint=(0,0),endpoint=(0,0),cr='k',lw=None,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=None,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k'):
+            if scalelw is None: slw = self.topologylw
+            self.ax.plot((theta1,theta2),(r1,r2),color=self.scalecolor,lw=slw) 
+    def drawscale(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=0.25,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k',fullscaleticklabeloffset=0.25,scaler_y=0.25):
         Ymin,Ymax = [],[]
         if plotfulllengthscale:
             if fullscalelw is None: fullscalelw = self.topologylw
             if fullscaleticklw is None: fullscaleticklw = self.topologylw
-            if fullscaleticklabelsize is None: fullscaleticklabelsize = self.labelsize
+            if fullscaleticklabelsize is None: fullscaleticklabelsize = self.tiplabelsize
             xmin,xmax = 0,self.Total_length
             ycoordi = fullscaley
             xticks = np.linspace(xmin,xmax,6) if fullscalexticks is None else fullscalexticks
             if fullscaleticklabels is None: fullscaleticklabels = ["{:.1f}".format(float(tick)) for tick in xticks[::-1]]
             self.ax.plot((xticks[-1],xticks[0]), (ycoordi,ycoordi), color=fullscalecolor, linewidth=fullscalelw)
-            y2 = fullscaletickheight if fullscaletickheight is not None else self.scaler_y
+            y2 = fullscaletickheight
             for tick,ticklabel in zip(xticks,fullscaleticklabels):
                 self.ax.plot((tick,tick), (ycoordi,ycoordi-y2), color=fullscaletickcolor, linewidth=fullscaleticklw)
-                self.ax.text(tick,ycoordi-y2-self.scaler_y,ticklabel,fontsize=fullscaleticklabelsize,color=fullscaleticklabelcolor,ha='center',va='top')
-            y2+=self.scaler_y
+                self.ax.text(tick,ycoordi-y2-fullscaleticklabeloffset,ticklabel,fontsize=fullscaleticklabelsize,color=fullscaleticklabelcolor,ha='center',va='top')
+            y2+=fullscaleticklabeloffset
         else:
             ycoordi,y2 = 0,0
         if inipoint!=endpoint:
-            if lw is None: lw = self.topologylw
+            if scalelw is None: slw = self.topologylw
             x1,y1 = inipoint
             x2,y2 = endpoint
-            self.ax.plot((x1,x2),(y1,y2),color=cr,linewidth=lw)
+            self.ax.plot((x1,x2),(y1,y2),color=scalecolor,linewidth=slw)
             ymin,ymax = sorted([y1,y2])
             ymin,ymax = min([ymin,0]),max([ymax,len(self.tips)+1])
             Ymin,Ymax = min([ymin,ycoordi-y2]),max([ymax,ycoordi-y2])
-            return Ymin,Ymax
         else:
             Ymin,Ymax = min([0,ycoordi-y2]),max([len(self.tips)+1,ycoordi-y2])
-            return Ymin,Ymax
+        self.ax.set_ylim(Ymin-scaler_y,Ymax+scaler_y)
     def drawwgdpolar(self,wgd=None,cr='r',al=0.6,lw=4):
         if wgd is None:
             return
@@ -359,8 +365,7 @@ class TreeBuilder:
             lower,upper = [float(i)/100 for i in hcr.split('-')]
             thetacoordi = self.allnodes_thetacoordinates[node.name]
             self.ax.plot((thetacoordi,thetacoordi),(self.Total_length-upper,self.Total_length-lower),lw=lw,color=cr,alpha=al)
-    def drawtips(self,labelxoffset,labelyoffset,plotnode=False,showlabel=True,labelsize=1.5,labelstyle='normal',labelalpha=1,labelcolor='k',nodesize=3,nodecolor='k',nodealpha=1,nodemarker='o'):
-        self.labelsize = labelsize
+    def drawtips(self):
         tips_ycoordinates = {}
         ycoordinate = 0
         tips_xcoordinates = {tip.name:self.root.distance(tip) for tip in self.tips}
@@ -373,58 +378,54 @@ class TreeBuilder:
                 tips_ycoordinates[clade_name] = ycoordinate
             else:
                 ycoordinate,tips_ycoordinates = recursionuntilalltip(clade,ycoordinate,tips_ycoordinates,self.clades_size)
-        #print(tips_xcoordinates,tips_ycoordinates)
         for tip in self.tips:
-            if plotnode: self.ax.plot(tips_xcoordinates[tip.name],tips_ycoordinates[tip.name],marker=nodemarker,markersize=nodesize,color=nodecolor,alpha=nodealpha)
-            if showlabel:
-                text = self.ax.text(tips_xcoordinates[tip.name]+self.Total_length*labelxoffset,tips_ycoordinates[tip.name]+len(self.tips)*labelyoffset,tip.name,ha='left',va='center',fontsize=labelsize,fontstyle=labelstyle,alpha=labelalpha,color=labelcolor)
+            if self.plottipnode: self.ax.plot(tips_xcoordinates[tip.name],tips_ycoordinates[tip.name],marker=self.tipnodemarker,markersize=self.tipnodesize,color=self.tipnodecolor,alpha=self.tipnodealpha)
+            if self.showtiplabel:
+                text = self.ax.text(tips_xcoordinates[tip.name]+self.Total_length*self.tiplabelxoffset,tips_ycoordinates[tip.name]+len(self.tips)*self.tiplabelyoffset,tip.name,ha='left',va='center',fontsize=self.tiplabelsize,fontstyle=self.tiplabelstyle,alpha=self.tiplabelalpha,color=self.tiplabelcolor)
         self.tips_ycoordinates,self.tips_xcoordinates = tips_ycoordinates,tips_xcoordinates
         self.allnodes_ycoordinates,self.allnodes_xcoordinates = {**tips_ycoordinates},{**tips_xcoordinates}
-    def drawnodes(self,labelxoffset,labelyoffset,showlabel=False,plotnode=False,pnuc=False,nuca=0.5,nucc='blue',nulw=4,labelsize=1.5,labelalpha=1,labelcolor='k',nodesize=3,nodecolor='k',nodealpha=1,labelstyle='normal',nodemarker='o'):
+    def drawnodes(self):
         self.nodes_ycoordinates = {}
         self.nodes_xcoordinates = {}
-        self.nodesize = nodesize
-        if pnuc:
+        if self.plotnodeuncertainty:
             logging.info("Adding node uncertainty")
         for node in self.nodes:
             children = findfirstchildren(node)
             self.nodes_ycoordinates[node.name] = recursiongetycor(children,self.tips_ycoordinates)
             self.nodes_xcoordinates[node.name] = self.root.distance(node)
-            if plotnode: self.ax.plot(self.nodes_xcoordinates[node.name],self.nodes_ycoordinates[node.name],marker=nodemarker,markersize=nodesize,color=nodecolor,alpha=nodealpha)
-            if showlabel: self.ax.text(self.nodes_xcoordinates[node.name]+self.Total_length*labelxoffset,self.nodes_ycoordinates[node.name]+len(self.tips)*labelyoffset,node.name,ha='left',va='center',fontsize=labelsize,alpha=labelalpha,fontstyle=labelstyle)
-            if pnuc:
+            if self.plotnnode: self.ax.plot(self.nodes_xcoordinates[node.name],self.nodes_ycoordinates[node.name],marker=self.nnodemarker,markersize=self.nnodesize,color=self.nnodecolor,alpha=self.nnodealpha)
+            if self.shownodelabel: self.ax.text(self.nodes_xcoordinates[node.name]+self.Total_length*self.nodelabelxoffset,self.nodes_ycoordinates[node.name]+len(self.tips)*self.nodelabelyoffset,node.name,ha='left',va='center',fontsize=self.nodelabelsize,alpha=self.nodelabelalpha,fontstyle=self.nodelabelstyle,color=self.nodelabelcolor)
+            if self.plotnodeuncertainty:
                 nodeuncertainty = getnuc(node)
                 if None in nodeuncertainty:
                     continue
                 nodeuncertainty = -np.array(nodeuncertainty)+self.Total_length
-                self.ax.plot((nodeuncertainty[1],nodeuncertainty[0]),(self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[node.name]),lw=nulw,color=nucc,alpha=nuca)
+                self.ax.plot((nodeuncertainty[1],nodeuncertainty[0]),(self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[node.name]),lw=self.nulw,color=self.nuccolor,alpha=self.nucalpha)
         self.allnodes_ycoordinates = {**self.allnodes_ycoordinates,**self.nodes_ycoordinates}
         self.allnodes_xcoordinates = {**self.allnodes_xcoordinates,**self.nodes_xcoordinates}
-        #print(self.nodes_xcoordinates,self.nodes_ycoordinates)
-    def drawlines(self,ubr=None,rbr=False,topologylw=3):
+    def drawlines(self,rbr=False):
         drawed_nodes = []
-        self.topologylw = topologylw
-        if ubr is None:
+        if self.userbranchcolor is None:
             branch_colors = {**{tip.name:'k' for tip in self.tips},**{node.name:'k' for node in self.nodes}}
             if rbr:
                 for key in branch_colors: branch_colors[key] = random_color_hex()
         else:
-            branch_colors = getubr(ubr)
+            branch_colors = getubr(self.userbranchcolor)
         for tip in self.tips:
             firstparent = getfirstparent(tip,self.nodes)
             segment_length = self.root.distance(tip)-self.root.distance(firstparent)
             xmin,xmax = self.root.distance(firstparent),self.root.distance(tip)
-            self.ax.plot((xmin,xmax),(self.tips_ycoordinates[tip.name],self.tips_ycoordinates[tip.name]),color=branch_colors.get(tip.name,'k'),linewidth=topologylw)
+            self.ax.plot((xmin,xmax),(self.tips_ycoordinates[tip.name],self.tips_ycoordinates[tip.name]),color=branch_colors.get(tip.name,'k'),linewidth=self.topologylw)
             ymin, ymax = sorted([self.tips_ycoordinates[tip.name],self.nodes_ycoordinates[firstparent.name]])
-            self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(tip.name,'k'),linewidth=topologylw)
+            self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(tip.name,'k'),linewidth=self.topologylw)
         for node in self.nodes:
             if self.root.distance(node) == 0: continue
             firstparent = getfirstparent(node,self.nodes)
             segment_length = self.root.distance(node)-self.root.distance(firstparent)
             xmin,xmax = self.root.distance(firstparent),self.root.distance(node)
-            self.ax.plot((xmin,xmax),(self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[node.name]),color=branch_colors.get(node.name,'k'),linewidth=topologylw)
+            self.ax.plot((xmin,xmax),(self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[node.name]),color=branch_colors.get(node.name,'k'),linewidth=self.topologylw)
             ymin, ymax = sorted([self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[firstparent.name]])
-            self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(node.name,'k'),linewidth=topologylw)
+            self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(node.name,'k'),linewidth=self.topologylw)
     def drawtrait(self,trait=(),offset=0.2,usedata=()):
         if trait == ():
             return
@@ -471,7 +472,7 @@ class TreeBuilder:
             self.ax.text(self.Total_length*(1+offset),-0.5,0,ha='center',va='top')
             self.ax.text(self.Total_length*(1+offset)+scaled_Maxi/2,-0.5,'{:.0f}'.format(real_Maxi/2),ha='center',va='top')
             self.ax.text(self.Total_length*(1+offset)+scaled_Maxi,-0.5,'{:.0f}'.format(real_Maxi),ha='center',va='top')
-    def drawwgd(self,wgd=None,cr='r',al=0.6):
+    def drawwgd(self,wgd=None,cr='r',al=0.6,lw=4):
         if wgd is None:
             return
         logging.info("Adding WGD")
@@ -482,7 +483,7 @@ class TreeBuilder:
             node = self.tree.common_ancestor(*sps)
             lower,upper = [float(i)/100 for i in hcr.split('-')]
             ycoordi = self.allnodes_ycoordinates[node.name]
-            self.ax.plot((self.Total_length-upper,self.Total_length-lower),(ycoordi,ycoordi),lw=4,color=cr,alpha=al)
+            self.ax.plot((self.Total_length-upper,self.Total_length-lower),(ycoordi,ycoordi),lw=lw,color=cr,alpha=al)
 
 def thetatovalue(theta):
     return theta/np.pi*180
@@ -584,22 +585,26 @@ def stringttophylo(string):
     tree = Phylo.read(handle, "newick")
     return tree
 
-def plottree(tree=None,polar=None,trait=(),usedtraitcolumns=(),wgd=None,output='Plottree.pdf'):
-    if tree is None:
-        Tree = stringttophylo(Test_tree)
+def plottree(tree=None,treeobject=None,polar=None,fs=(10,10),trait=(),usedtraitcolumns=(),wgd=None,output=None):
+    if treeobject is None:
+        if tree is None:
+            Tree = stringttophylo(Test_tree)
+        else:
+            Tree = Phylo.read(tree,format='newick')
     else:
-        Tree = Phylo.read(tree,format='newick')
-    TB = TreeBuilder(Tree)
-    if polar is not None:
-        TB.polardraw(polar,fs=(30,30),topologylw=3,userfig=None,userax=None,tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=False,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',plotfulllengthscale=False,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='r',scalelw=3,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='--')
+        Tree = treeobject
+    TB = TreeBuilder(Tree,topologylw=3,userfig=None,userax=None,fs=fs,tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,tiplabelxoffset=0.02,tiplabelyoffset=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=False,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',nodelabelxoffset=0.02,nodelabelyoffset=0)
+    #if polar is not None:
+        #TB.polardraw()
+        #TB.polardraw(polar,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=False,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',plotfulllengthscale=False,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='r',scalelw=3,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='--')
         #TB.highlightnodepolar(nodes=[('Apostasia_shenzhenica','Asparagus_setaceus')],colors=['r'],nodesizes=[],nodealphas=[],nodemarkers=[])
         #TB.highlightcladepolar(clades=[('Apostasia_shenzhenica','Asparagus_setaceus')],facecolors=[],alphas=[],lws=[],leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None)
-        TB.drawwgdpolar(wgd=wgd,cr='r',al=0.6,lw=4)
-    else:
-        TB.basicdraw(fs=(15,60),topologylw=3,tiplabelxoffset=0.02,tiplabelyoffset=0,nodelabelxoffset=0.02,nodelabelyoffset=0,userfig=None,userax=None,shownodelabel=False,showtiplabel=True,plottipnode=False,plotnnode=False,userbranchcolor=None,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',plotfulllengthscale=True,scaleinipoint=(0,0),scaleendpoint=(0,0),scalecolor='k',scalelw=None,tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4,fullscalelw=None,fullscaley=-1,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=None,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k')
+        #TB.drawwgdpolar(wgd=wgd,cr='r',al=0.6,lw=4)
+    #else:
+        #TB.basicdraw(nodelabelxoffset=0.02,nodelabelyoffset=0,shownodelabel=False,showtiplabel=True,plottipnode=False,plotnnode=False,userbranchcolor=None,plotnodeuncertainty=True,nucalpha=0.4,nuccolor='blue',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=6,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',wgdlw=4)
         #TB.highlightnode(nodes=[('Apostasia_shenzhenica','Asparagus_setaceus')],colors=['r'],nodesizes=[],nodealphas=[],nodemarkers=[])
         #TB.highlightclade(clades=[('Apostasia_shenzhenica','Asparagus_setaceus')],facecolors=[],alphas=[],lws=[],leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None)
-        TB.drawtrait(trait=trait,offset=0.3,usedata=usedtraitcolumns)
-        TB.drawwgd(wgd=wgd,cr='r',al=0.6)
-    if output is not None: TB.saveplot(output)
+        #TB.drawtrait(trait=trait,offset=0.3,usedata=usedtraitcolumns)
+        #TB.drawwgd(wgd=wgd,cr='r',al=0.6,lw=4)
+    #if output is not None: TB.saveplot(output)
     return TB,Tree

@@ -25,7 +25,9 @@ setup(
        'pandas>=1.4.4',
        'numpy>=1.19.0',
        'rich>=12.5.1',
-       'matplotlib>=3.2.2'
+       'matplotlib>=3.2.2',
+       'scipy>=1.10.1',
+       'statsmodels>=0.14.1'
     ],
     entry_points='''
         [console_scripts]
