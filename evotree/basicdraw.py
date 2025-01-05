@@ -25,6 +25,8 @@ def gettotalspecies(tree):
 
 def getdepths_sizes(root):
     Depths = root.depths(unit_branch_lengths=True)
+    root_branch_length = min(Depths.values())
+    Depths = {clade:int(round(depth-root_branch_length)) for clade,depth in Depths.items()}
     depths_sizes_dic = {}
     maxi_depth = 0
     depths_sizeordered = {}
@@ -53,7 +55,7 @@ def findcladebyname(tree,name):
     return next(tree.find_clades(name))
 
 class TreeBuilder:
-    def __init__(self, tree, topologylw=1,userfig=None,userax=None,fs=(10,10),tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,tiplabelxoffset=0.02,tiplabelyoffset=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=True,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=False,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=3,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',nodelabelxoffset=0.02,nodelabelyoffset=0,ubrobject=None):
+    def __init__(self, tree, topologylw=1,userfig=None,userax=None,fs=(10,10),tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,tiplabelxoffset=0.02,tiplabelyoffset=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=True,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=False,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=3,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',nodelabelxoffset=0.02,nodelabelyoffset=0,ubrobject=None,extinct_lineages=[]):
         self.tree = tree
         self.root = tree.root
         self.root_depth_size_dic,self.maxi_depth,self.depths_sizeordered,self.clades_size,self.clades_alltips = getdepths_sizes(self.root)
@@ -74,6 +76,7 @@ class TreeBuilder:
         self.nnodesize = nnodesize; self.nnodecolor = nnodecolor;self.nnodealpha = nnodealpha;self.nodelabelstyle = nodelabelstyle
         self.nnodemarker = nnodemarker;self.nodelabelxoffset = nodelabelxoffset;self.nodelabelyoffset = nodelabelyoffset
         self.ubrobject = ubrobject
+        self.extinct_lineages = extinct_lineages
     def checkdupids(self):
         node_ids = [node.name for node in self.nodes if node.name is not None]
         tip_ids = [tip.name for tip in self.tips if tip.name is not None]
@@ -298,22 +301,28 @@ class TreeBuilder:
             branch_colors = getubr(self.userbranchcolor)
         #thetass,rss,crs = [[] for _ in range(3)]
         for tip in self.tips:
+            ls = '--' if tip.name in self.extinct_lineages else '-'
             thetass,rss = [],[]
             firstparent = getfirstparent(tip,self.nodes)
             segment_length = self.root.distance(tip)-self.root.distance(firstparent)
             rmin,rmax = self.root.distance(firstparent),self.root.distance(tip)
-            self.ax.plot((self.tips_thetacoordinates[tip.name],self.tips_thetacoordinates[tip.name]),(rmin,rmax),color=branch_colors.get(tip.name,'k'),lw=self.topologylw,solid_joinstyle='round')
+            self.ax.plot((self.tips_thetacoordinates[tip.name],self.tips_thetacoordinates[tip.name]),(rmin,rmax),color=branch_colors.get(tip.name,'k'),lw=self.topologylw,solid_joinstyle='round',ls=ls)
             thetass +=[self.tips_thetacoordinates[tip.name],self.tips_thetacoordinates[tip.name]];rss+=[rmin,rmax]
             thetamin, thetamax = sorted([self.tips_thetacoordinates[tip.name],self.nodes_thetacoordinates[firstparent.name]])
             thetas = np.linspace(thetamin, thetamax, 1000)
-            self.ax.plot(thetas,np.full(len(thetas),self.nodes_rcoordinates[firstparent.name]),color=branch_colors.get(tip.name,'k'),lw=self.topologylw,solid_joinstyle='round')
+            self.ax.plot(thetas,np.full(len(thetas),self.nodes_rcoordinates[firstparent.name]),color=branch_colors.get(tip.name,'k'),lw=self.topologylw,solid_joinstyle='round',ls=ls)
             #thetass += [i for i in thetas];rss+=[i for i in np.full(len(thetas),self.nodes_rcoordinates[firstparent.name])]
             #self.ax.plot(thetass,rss,color=branch_colors.get(tip.name,'k'),lw=self.topologylw,solid_joinstyle='round')
             #thetass +=[i for i in thetas];rss+=[i for i in np.full(len(thetas),self.nodes_rcoordinates[firstparent.name])]
             #crs+= [branch_colors.get(tip.name,'black') for _ in range(len(thetas))]
         for node in self.nodes:
             thetass,rss = [],[]
-            if self.root.distance(node) == 0: continue
+            if self.root.distance(node) == 0:
+                if node.branch_length is None:
+                    continue
+                else:
+                    self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(0,-self.nodes_rcoordinates[node.name]),color=branch_colors.get(node.name,'k'),lw=self.topologylw,solid_joinstyle='round')
+                    continue
             firstparent = getfirstparent(node,self.nodes)
             segment_length = self.root.distance(node)-self.root.distance(firstparent)
             rmin,rmax = self.root.distance(firstparent),self.root.distance(node)
@@ -388,6 +397,7 @@ class TreeBuilder:
         ycoordinate = 0
         tips_xcoordinates = {tip.name:self.root.distance(tip) for tip in self.tips}
         clades_sizeordered = self.depths_sizeordered[1] # first children from root
+        #clades_sizeordered = sorted(self.depths_sizeordered.items(),key=lambda x:x[0])[1]
         for clades_size in clades_sizeordered:
             clade_name,size = clades_size
             clade = findcladebyname(self.tree,clade_name)
@@ -407,6 +417,16 @@ class TreeBuilder:
         logging.info("Adding text to node")
         for node,text in nodedic.items():
             self.ax.text(self.allnodes_xcoordinates[node]+self.Total_length*textxoffset,self.allnodes_ycoordinates[node]+len(self.tips)*textyoffset,text,ha='left',va='center',fontsize=textsize,alpha=textalpha,fontstyle=textstyle,color=textcolor)
+    
+    def addextranodes(self,nodenames,marker='x',markersize=5,markercolor='k',markeralpha=1,labels=None,labelxoffset=0.1,labelyoffset=0.1,fontsize=15,labelalpha=1,fontstyle='normal',labelcolor='k'):
+        if labels is not None:
+            assert len(nodenames) == len(labels)
+            for nodename,label in zip(nodenames,labels):
+                self.ax.plot(self.allnodes_xcoordinates[nodename],self.allnodes_ycoordinates[nodename],marker=marker,markersize=markersize,color=markercolor,alpha=markeralpha)
+                self.ax.text(self.allnodes_xcoordinates[nodename]+self.Total_length*labelxoffset,self.allnodes_ycoordinates[nodename]+len(self.tips)*labelyoffset,label,ha='left',va='center',fontsize=fontsize,alpha=labelalpha,fontstyle=fontstyle,color=labelcolor)
+        else:
+            for nodename in nodenames:
+                self.ax.plot(self.allnodes_xcoordinates[nodename],self.allnodes_ycoordinates[nodename],marker=marker,markersize=markersize,color=markercolor,alpha=markeralpha)
 
     def drawnodes(self):
         self.nodes_ycoordinates = {}
@@ -439,14 +459,20 @@ class TreeBuilder:
         else:
             branch_colors = getubr(self.userbranchcolor)
         for tip in self.tips:
+            ls = '--' if tip.name in self.extinct_lineages else '-'
             firstparent = getfirstparent(tip,self.nodes)
             segment_length = self.root.distance(tip)-self.root.distance(firstparent)
             xmin,xmax = self.root.distance(firstparent),self.root.distance(tip)
-            self.ax.plot((xmin,xmax),(self.tips_ycoordinates[tip.name],self.tips_ycoordinates[tip.name]),color=branch_colors.get(tip.name,'k'),linewidth=self.topologylw)
+            self.ax.plot((xmin,xmax),(self.tips_ycoordinates[tip.name],self.tips_ycoordinates[tip.name]),color=branch_colors.get(tip.name,'k'),linewidth=self.topologylw,ls=ls)
             ymin, ymax = sorted([self.tips_ycoordinates[tip.name],self.nodes_ycoordinates[firstparent.name]])
-            self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(tip.name,'k'),linewidth=self.topologylw)
+            self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(tip.name,'k'),linewidth=self.topologylw,ls=ls)
         for node in self.nodes:
-            if self.root.distance(node) == 0: continue
+            if self.root.distance(node) == 0:
+                if self.root.branch_length is None:
+                    continue
+                else:
+                    self.ax.plot((-self.root.branch_length,0),(self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[node.name]),color=branch_colors.get(node.name,'k'),linewidth=self.topologylw)
+                    continue
             firstparent = getfirstparent(node,self.nodes)
             segment_length = self.root.distance(node)-self.root.distance(firstparent)
             xmin,xmax = self.root.distance(firstparent),self.root.distance(node)

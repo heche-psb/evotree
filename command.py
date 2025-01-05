@@ -3,6 +3,7 @@ import logging
 from rich.logging import RichHandler
 from evotree.basicdraw import plottree
 from evotree.simulatepbmm import pbmmodeling
+from evotree.simulatepbdm import pbdmmodeling
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
 @click.option('--verbosity', '-v', type=click.Choice(['info', 'debug']), default='info', help="Verbosity level, default = info.")
@@ -36,6 +37,10 @@ def initree(**kwargs):
 @click.option('--output', '-o', default=None, show_default=True,help='output file name')
 def simulatepbmm(**kwargs):
     pbmmodeling(**kwargs)
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepbdm():
+    pbdmmodeling()
 
 if __name__ == "__main__":
     cli()
