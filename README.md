@@ -7,7 +7,7 @@
 </div>
 
 ## Installation
-The `fossiler` package can be readily installed via `PYPI`. An example command is given below.
+The `evotree` package can be readily installed via `PYPI`. An example command is given below.
 
 ```
 virtualenv -p=python3 ENV (or python3/python -m venv ENV)
