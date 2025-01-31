@@ -27,7 +27,8 @@ setup(
        'rich>=12.5.1',
        'matplotlib>=3.2.2',
        'scipy>=1.10.1',
-       'statsmodels>=0.14.1'
+       'statsmodels>=0.14.1',
+       'tqdm>=4.64.1'
     ],
     entry_points='''
         [console_scripts]

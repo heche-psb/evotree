@@ -4,6 +4,8 @@ from rich.logging import RichHandler
 from evotree.basicdraw import plottree
 from evotree.simulatepbmm import pbmmodeling
 from evotree.simulatepbdm import pbdmmodeling
+from evotree.simulatepbdm import pbdmmodelingage
+from evotree.simulatepbdm import pbdmmodelingagewithwgd
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
 @click.option('--verbosity', '-v', type=click.Choice(['info', 'debug']), default='info', help="Verbosity level, default = info.")
@@ -41,6 +43,14 @@ def simulatepbmm(**kwargs):
 @cli.command(context_settings={'help_option_names': ['-h', '--help']})
 def simulatepbdm():
     pbdmmodeling()
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepbdmage():
+    pbdmmodelingage()
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepbdmagewithwgd():
+    pbdmmodelingagewithwgd()
 
 if __name__ == "__main__":
     cli()
