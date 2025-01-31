@@ -4,6 +4,7 @@
 **Hengchi Chen**
 
 [**Installation**](#installation)
+[**Illustration**](#illustration)
 </div>
 
 ## Installation
@@ -31,4 +32,21 @@ If there is permission problem in the installation, please try the following com
 ```
 pip install -e .
 ```
+## Illustration
 
+### Continuous-time birth-death Markov Chain Monte Carlo (MCMC) simulation
+
+```
+evotree simulatepbdmage
+```
+
+![](data/Gene_Age_Distribution_3_ratios.svg)
+
+This figure shows the gene age distributions under a simple continuous-time birth-death Markov Chain Monte Carlo (MCMC) simulation of 10,000 gene families. Panel a shows the simulation with the duplication and loss rates as 1.5 and 1. Panel b shows the simulation with the duplication and loss rates as 1 and 1. Panel c shows the simulation with the duplication and loss rates as 1 and 1.5.
+
+```
+evotree simulatepbdmagewithwgd
+```                                                                                                                                                
+![](data/Gene_Age_Distribution_3_retentionrates_withWGD.svg)
+
+This figure shows the gene age distributions under a simple continuous-time birth-death MCMC simulation of 10,000 gene families with a WGD event aged at 1. The gene duplication and loss rates are both 1. Panel a shows the simulation with the retention rate as 0.8. Panel b shows the simulation with the retention rate as 0.4. Panel c shows the simulation with the retention rate as 0.2.
