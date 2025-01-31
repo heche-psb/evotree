@@ -3,7 +3,7 @@
 # `evotree` : a python library of processing phylogenetic tree
 **Hengchi Chen**
 
-[**Installation**](#installation)
+[**Installation**](#installation) |
 [**Illustration**](#illustration)
 </div>
 
