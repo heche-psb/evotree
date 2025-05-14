@@ -14,7 +14,7 @@ import pandas as pd
 import re
 
 Test_nonultrametric = "((((((((A:20,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,I:43):3,J:46);"
-Test_tree = "((((((((Avvvvvvvvvvvvvvvvvvvvvvvvv:10,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,(I:41,J:41):2):3,K:46);"
+Test_tree = "((((((((A:10,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,(I:41,J:41):2):3,K:46);"
 
 def gettotallength(tree):
     diss = max([tree.distance(tip) for tip in tree.get_terminals()])
@@ -176,9 +176,9 @@ class TreeBuilder:
         self.drawnodes()
         self.drawlines()
         #self.drawlines(ubr=userbranchcolor,topologylw=topologylw)
-    def showlegend(self,**kwargs):
+    def showlegend(self,*args,**kwargs):
         if "fontsize" not in kwargs: kwargs.update({'fontsize':self.tiplabelsize})
-        self.ax.legend(**kwargs)
+        self.ax.legend(*args,**kwargs)
     def highlightnode(self,nodes=[],colors=[],nodesizes=[],nodealphas=[],nodemarkers=[],addlegend=False,legendlabel=None):
         if len(nodes) == 0:
             return
@@ -224,6 +224,7 @@ class TreeBuilder:
             if bottomoffset is not None: ycoor += len(self.tips)*bottomoffset
             if topoffset is not None: height += len(self.tips)*topoffset
             resolution_x,resolution_y = 2000,2000
+            xlim = self.ax.get_xlim();ylim = self.ax.get_ylim()
             if gradual:
                 minimal = 0 if al < 0.1 else 0.1
                 color_limits_rgba = [to_rgba(fcr, alpha=0.1),to_rgba(fcr, alpha=al)]
@@ -237,6 +238,7 @@ class TreeBuilder:
                 color_array[..., :3] = color_rgb
                 color_array[..., 3] = al
                 self.ax.imshow(color_array,extent=(xcoor, xcoor+width, ycoor, ycoor+height),origin="lower",aspect="auto")
+            self.ax.set_xlim(xlim);self.ax.set_ylim(ylim)
             if labels != []:
                 xcoor_text = xcoor
                 if labelxoffset is not None: xcoor_text += labelxoffset*self.Total_length
@@ -367,7 +369,6 @@ class TreeBuilder:
                 rs = np.full(len(thetas),tick)
                 self.ax.plot(thetas,rs,lw=fullscalelw,color=fullscalecolor,ls=fullscalels)
         if inipoint!=endpoint:
-            print('Yes')
             degree1,r1 = inipoint
             degree2,r2 = endpoint
             theta1,theta2 = degree1/180*np.pi,degree2/180*np.pi
@@ -412,9 +413,9 @@ class TreeBuilder:
             Ymin,Ymax = min([0,ycoordi-y2]),max([len(self.tips)+1,ycoordi-y2])
         if addgeo:
             time = 0
-            epoch_boundaries = [2.58,23.03,66.0,145.0,201.4,251.902,298.9,358.9,419.2,443.8,485.4,538.8,1000,1600,2500,2800,3200,3600,4031]
-            epoch_labels = ["","Neo","Paleogene","Cretaceous","Jurassic","Triassic","Permian","Carboniferous","Devonian","Silurian","Ordovician","Cambrian","Neo-proterozoic","Meso-proterozoic","Paleo-proterozoic","Neo-archean","Meso-archean","Paleo-archean","Eo-archean"]
-            epoch_colors = ["#fff880ff","#fddd1cff","#f89b5cff","#80cf5cff","#33bde9ff","#8a3ea4ff","#e74d40ff","#69b2b0ff","#ca9547ff","#b3e4c2ff","#00a990ff","#83ad6aff","#fab24aff","#f9b269ff","#f1457eff","#f799c7ff","#f467b2ff","#f140a9ff","#d9058dff"]
+            epoch_boundaries = [2.58,23.03,66.0,145.0,201.4,251.902,298.9,358.9,419.2,443.8,485.4,538.8,635,720,1000,1200,1400,1600,2500,2800,3200,3600,4031]
+            epoch_labels = ["","Neo","Paleogene","Cretaceous","Jurassic","Triassic","Permian","Carboniferous","Devonian","Silurian","Ordovician","Cambrian","Ediacaran","Cryogenian","Tonian","Stenian","Ectasian","Calymmian","Paleo-proterozoic","Neo-archean","Meso-archean","Paleo-archean","Eo-archean"]
+            epoch_colors = ["#fff880ff","#fddd1cff","#f89b5cff","#80cf5cff","#33bde9ff","#8a3ea4ff","#e74d40ff","#69b2b0ff","#ca9547ff","#b3e4c2ff","#00a990ff","#83ad6aff","#fcd56eff","#fbc961ff","#fabd55ff","#fcd69cff","#fbca8eff","#fabe80ff","#f1457eff","#f799c7ff","#f467b2ff","#f140a9ff","#d9058dff"]
             self.scaled_Total_length = self.Total_length*geoscaling
             left_bound = 0
             for boundary,la,cr in zip(epoch_boundaries,epoch_labels,epoch_colors):
@@ -533,6 +534,62 @@ class TreeBuilder:
             self.ax.plot((xmin,xmax),(self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[node.name]),color=branch_colors.get(node.name,'k'),linewidth=self.topologylw,zorder=0)
             ymin, ymax = sorted([self.nodes_ycoordinates[node.name],self.nodes_ycoordinates[firstparent.name]])
             self.ax.plot((self.nodes_xcoordinates[firstparent.name],self.nodes_xcoordinates[firstparent.name]),(ymin, ymax),color=branch_colors.get(node.name,'k'),linewidth=self.topologylw,zorder=0)
+
+    def drawcircles(self,traittype=(),xoffset=0.2,usetypedata=(),traitquantity=(),usequantitydata=(),traitobjectname=(),scalingx=0.1,maxcirclesize=None,colormap=None,alphamap=None,labelsize=None,legendmap=None,decimal=0,quantitylegend=False,maxvaluescaler=None):
+        if traittype != ():
+            df_type = pd.read_csv(traittype,header=0,index_col=0,sep='\t')
+            traittype_orig = {i:j for i,j in zip(df_type.index,df_type.loc[:,usetypedata[0]])}
+        else:
+            traittype_orig = {i.name:0 for i in self.tips}
+        if traitquantity != ():
+            df_quantity = pd.read_csv(traitquantity,header=0,index_col=0,sep='\t')
+            traitquantity_orig = {i:j for i,j in zip(df_quantity.index,df_quantity.loc[:,usequantitydata[0]])}
+        else: traitquantity_orig = {i:1 for i in traittype_orig.keys()}
+        ys_types_quantities = {self.allnodes_ycoordinates[k]:(v,traitquantity_orig[k]) for k,v in traittype_orig.items() if k in traitquantity_orig} 
+        ys_sorted = np.array([i for i,j in sorted(ys_types_quantities.items(),key=lambda x:x[0])])
+        types_sorted = np.array([j[0] for i,j in sorted(ys_types_quantities.items(),key=lambda x:x[0])])
+        quantities_sorted = np.array([j[1] for i,j in sorted(ys_types_quantities.items(),key=lambda x:x[0])])
+        scaling = scalingx*self.Total_length
+        self.ax.set_xlim(right=self.Total_length*(1+xoffset)+scaling)
+        #xs = np.array([self.Total_length*(1+xoffset)+scaling/2 for i in range(len(traittype_orig))])
+        xs = np.array([self.Total_length*(1+xoffset)+0.5*scaling for i in range(len(traitquantity_orig))])
+        Categories = set(traittype_orig.values())
+        if maxvaluescaler is None: maxvaluescaler = np.max(quantities_sorted)
+        if maxcirclesize is None: maxcirclesize = self.tipnodesize
+        if colormap is None:
+            colormap = ['gray' for i in range(len(Categories))] #colormap = cm.viridis(np.linspace(0, 1, len(Categories)))
+            cs = np.array([colormap[i] for i in types_sorted])
+        else: cs = np.array([colormap[i] for i in types_sorted])
+        fixed_alpha = 1
+        if alphamap is None:
+            for x,y,q,cr in zip(xs,ys_sorted,quantities_sorted,cs):
+                self.ax.plot(x,y,'o',markersize=q/maxvaluescaler*maxcirclesize,c=cr,alpha=fixed_alpha)
+        else:
+            alpha_sorted = np.array([alphamap[i] for i in types_sorted])
+            for x,y,q,cr,al in zip(xs,ys_sorted,quantities_sorted,cs,alpha_sorted):
+                self.ax.plot(x,y,'o',markersize=q/maxvaluescaler*maxcirclesize,c=cr,alpha=al)
+        if labelsize is None: labelsize = self.tiplabelsize
+        self.ax.text(self.Total_length*(1+xoffset)+0.5*scaling,len(self.tips)+1,traitobjectname,ha='center',va='center',fontsize=labelsize)
+        if traittype != ():
+            if legendmap is not None:
+                if alphamap is None:
+                    for k,v in legendmap.items():
+                        if traitquantity != ():
+                            self.ax.plot([],[],'o',markersize=self.tipnodesize,c=colormap[k],alpha=fixed_alpha,label=v)
+                        else:
+                            self.ax.plot([],[],'o',markersize=maxcirclesize,c=colormap[k],alpha=fixed_alpha,label=v)
+                else:
+                    for k,v in legendmap.items():
+                        if traitquantity != ():
+                            self.ax.plot([],[],'o',markersize=self.tipnodesize,c=colormap[k],alpha=alphamap[k],label=v)
+                        else:
+                            self.ax.plot([],[],'o',markersize=maxcirclesize,c=colormap[k],alpha=alphamap[k],label=v)
+        if traitquantity != ():
+            if quantitylegend:
+                showsizes = [0.25,0.5,0.75,1]
+                for ss in showsizes: self.ax.plot([],[],'o',markersize=ss*maxcirclesize,color='gray',label="{:.{}f}".format(ss*maxvaluescaler,decimal))
+
+
     def drawtrait(self,trait=(),xoffset=0.2,yoffset=0.2,labeloffset=0.2,usedata=(),traitobject=(),traitobjectname=(),traitcolor='k',scalingx=0.1,decimal=1,labelsize=None):
         if trait == () and traitobject == ():
             return
@@ -547,14 +604,17 @@ class TreeBuilder:
                 df = pd.read_csv(trait_file,header=0,index_col=0,sep='\t')
                 if usedata!=():
                     trait_dic_orig = {i:j for i,j in zip(df.index,df.loc[:,usedata[ind]])}
-                    traitname = usedata[ind]
+                    #traitname = traitobjectname[ind]
+#                    traitname = usedata[ind]
                 else:
                     trait_dic_orig = {i:j for i,j in zip(df.index,df.iloc[:,0])}
-                    traitname = df.columns[0]
+#                    traitname = df.columns[0]
             else:
-                trait_dic_orig,traitname = trait_file,traitobjectname[ind]
+                trait_dic_orig = trait_file
+            traitname = traitobjectname if type(traitobjectname) is str else traitobjectname[ind]
             trait_dic = copy.deepcopy(trait_dic_orig)
             scaling = scalingx*self.Total_length
+            self.ax.set_xlim(right=self.Total_length*(1+xoffset)+scaling)
             self.ax.text(self.Total_length*(1+xoffset)+0.5*scaling,len(self.tips)+1,traitname,ha='center',va='center',fontsize=labelsize)
             min_trait = sorted(trait_dic.values())[0]
             if min_trait < 0:
@@ -630,7 +690,7 @@ def thetatovalue(theta):
     return theta/np.pi*180
 
 def getnuc(node):
-    if node.comment is not None:
+    if node.comment is not None: 
         return list(map(float, re.findall(r"\{([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?),\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\}", node.comment)[0]))
     else:
         return None,None

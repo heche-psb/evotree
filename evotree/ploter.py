@@ -15,6 +15,31 @@ def addvvline(ax,xvalue,color,lstyle,labell,lw):
     if labell == '': ax.axvline(xvalue,color=color, ls=lstyle, lw=lw)
     else: ax.axvline(xvalue,color=color, ls=lstyle, lw=lw, label=labell)
 
+def ordinary_hist(y,bins=50,outfile='Ordinary_hist.pdf',xlabel='Number of persisted polyploid species',ylabel='Number of iterations'):
+    fig, ax = plt.subplots(figsize=(5, 5))
+    Hs, Bins, patches = ax.hist(y, bins=bins, color='gray', linewidth=0.5, edgecolor="white")
+    ax.set_xlabel(xlabel,fontsize=15)
+    ax.set_ylabel(ylabel,fontsize=15)
+    #ax.spines['top'].set_visible(False)
+    #ax.spines['right'].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(outfile)
+    plt.close()
+
+def bar_hist(xs,ys,outfile='Persisted_Polyploids_Over_Time.pdf',xlabel='Time (million years)', ylabel='Number of survived polyploid species',legends=None):
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.bar(xs, ys, color=tableau_colors(0))
+    #ax.set_xticks(xs, labels=[str(i) for i in xs])
+    ax.set_xlabel(xlabel,fontsize=15)
+    ax.set_ylabel(ylabel,fontsize=15)
+    if len(legends) !=0:
+        for lable_,value in legends.items():
+            ax.plot([],[],color='k',alpha=0,label='{}: {}'.format(lable_,value))
+    ax.legend(loc=0,fontsize=15,frameon=False)
+    fig.tight_layout()
+    fig.savefig(outfile)
+    plt.close()
+
 def agedistributiondrawer(ages,plotkde=False,fitexpon=False,outfile='',legends={},ax=None,letter=None,wgdage=None): # Assuming age bounded within [0,5] (resembling Ks bounds)
     y = np.array(ages)
     if len(y)==0:

@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='evotree',
-    version='0.0.0.1',
+    version='0.0.0.2',
     packages=['evotree'],
     url='http://github.com/heche-psb/evotree',
     license='GPL',
@@ -28,7 +28,10 @@ setup(
        'matplotlib>=3.2.2',
        'scipy>=1.10.1',
        'statsmodels>=0.14.1',
-       'tqdm>=4.64.1'
+       'tqdm>=4.64.1',
+       'pymc>=5.6.1',
+       'arviz>=0.15.1',
+       'pytensor>=2.12.3'
     ],
     entry_points='''
         [console_scripts]

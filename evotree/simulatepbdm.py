@@ -8,6 +8,8 @@ from tqdm import trange
 from scipy.optimize import minimize
 from scipy.special import expm1
 from evotree.ploter import agedistributiondrawer
+from evotree.ploter import ordinary_hist
+from evotree.ploter import bar_hist
 import matplotlib.pyplot as plt
 
 def assembletree(lineages,lineages_birth_time,lineages_death_time,lineages_duration_time):
@@ -296,6 +298,78 @@ def simulate_pbdm_withwgd(lambda_rate, mu_rate, initial_lineages, max_time, wgd_
         wgdlineages_duration_time[key] = wgdlineages_death_time[key] - value
     return lineages,lineages_birth_time,lineages_death_time,lineages_duration_time,log_likelihood,wgd_lineages,wgdlineages_birth_time,wgdlineages_death_time,wgdlineages_duration_time
 
+def simulate_pure_birth_death_immigration(N0=8786, birth_rate = 0.1, death_rate=1, immigration_rate=100, T=124):
+    """
+    Simulates a pure birth, death and immigration process using Gillespie’s algorithm.
+
+    Parameters:
+    - N0: Initial population size.
+    - birth_rate: Birth rate per individual.
+    - death_rate: Death rate per individual.
+    - immigration_rate: Immigration rate.
+    - T: Maximum simulation time.
+
+    Returns:
+    - N: Ultimate population size.
+    """
+    t = 0
+    N = N0
+    lineages = set(['ini_sp_{}'.format(i) for i in range(N)])
+    lineages_birth_times = {i:0 for i in lineages}
+    lineages_death_times = {}
+    while t < T:
+        total_rate = N * (death_rate+birth_rate) + immigration_rate # Calculate total rate of events
+        # Time to next event (exponentially distributed)
+        dt = np.random.exponential(1 / total_rate)
+        t += dt
+        if t >= T:
+            break
+        # Determine event: Birth, Death or Immigration
+        event = np.random.choice(["birth", "death", 'immigration'], p=[N*birth_rate / total_rate, N*death_rate / total_rate, immigration_rate/total_rate])
+        if event == "death":
+            N -= 1 # Death event
+        else:
+            N += 1  # Birth or Immigration event 
+    return N
+
+def simulate_pure_death_immigration(N0=8786, death_rate=1, immigration_rate=100, T=124, randomdr=False, randomir=False):
+    """
+    Simulates a pure death and immigration process using Gillespie’s algorithm.
+
+    Parameters:
+    - N0: Initial population size.
+    - death_rate: Death rate per individual.
+    - immigration_rate: Immigration rate.
+    - T: Maximum simulation time.
+
+    Returns:
+    - N: Ultimate population size.
+    """
+    t = 0
+    N = N0
+    while t < T:
+        if randomdr:
+            if randomir:
+                total_rate = N * death_rate * np.random.rand() + immigration_rate * np.random.rand()
+            else:
+                total_rate = N * death_rate * np.random.rand() + immigration_rate
+        else:
+            if randomir:
+                total_rate = N * death_rate + immigration_rate * np.random.rand()
+            else:
+                total_rate = N * death_rate + immigration_rate # Calculate total rate of events
+        # Time to next event (exponentially distributed)
+        dt = np.random.exponential(1 / total_rate)
+        t += dt
+        if t >= T:
+            break
+        # Determine event: Death or Immigration
+        if np.random.rand() <= immigration_rate / total_rate:
+            N += 1  # Immigration event
+        else:
+            N -= 1  # Death event
+    return N
+
 def simulate_pbdm(lambda_rate, mu_rate, initial_lineages, max_time, silence=False):
     """
     Simulates a Phylogenetic Birth–Death Model (PBDM). 
@@ -460,7 +534,7 @@ def pbdmmodelingage():
     dup_los = [(1.5,1),(1,1),(1,1.5)] # 3 ratios
     letters = ['a','b','c']
     fig, axs = plt.subplots(1,3,figsize=(18, 6))
-    outfile = "Gene_Age_Distribution_3_ratios.pdf"
+    outfile = "Gene_Age_Distribution_3_ratios.svg"
     for dup_los,ax,letter in zip(dup_los,axs.flatten(),letters):
         dup,los = dup_los
         PBDM = PBDMbuilder(lambda_rate=dup,mu_rate=los,initial_lineages=1,max_time=5)
@@ -475,7 +549,7 @@ def pbdmmodelingagewithwgd():
     qs = [0.8,0.4,0.2]
     letters = ['a','b','c']
     fig, axs = plt.subplots(1,3,figsize=(18, 6))
-    outfile = "Gene_Age_Distribution_3_retentionrates_withWGD.pdf"
+    outfile = "Gene_Age_Distribution_3_retentionrates_withWGD.svg"
     for dup_los,ax,letter,q in zip(dup_los,axs.flatten(),letters,qs):
         dup,los = dup_los
         PBDM = PBDMbuilder(lambda_rate=dup,mu_rate=los,initial_lineages=1,max_time=5)
@@ -483,3 +557,59 @@ def pbdmmodelingagewithwgd():
         fig.tight_layout()
         fig.savefig(outfile)
         plt.close()
+
+def pdimmodeling():
+    n_iterations = 10000
+    Population_sizes = []
+    for i in trange(n_iterations):
+        N = simulate_pure_death_immigration(N0=8786, death_rate=1, immigration_rate=100, T=124)
+        Population_sizes +=[N]
+    y = np.array(Population_sizes)
+    ordinary_hist(y,bins=50,outfile='Persisted_Polyploids_Hist.pdf',xlabel='Number of persisted polyploid species',ylabel='Number of iterations')
+
+def pdimmodelingtracktime():
+    n_iterations = 10
+    ts,ns = [],[]
+    dr = 1;ir = 100;n0 = 8786
+    for t in trange(1,125):
+        ts.append(t)
+        Population_sizes = []
+        for i in range(n_iterations):
+            N = simulate_pure_death_immigration(N0=n0, death_rate=dr, immigration_rate=ir, T=t, randomdr=True, randomir=True)
+            Population_sizes +=[N]
+        Population_sizes = np.array(Population_sizes)
+        ns.append(Population_sizes.mean())
+    #labels= {"Death rate":dr,"Immigration rate":ir}
+    #outfile = 'Persisted_Polyploids_Over_Time_dr_{}_ir_{}.pdf'.format(dr,ir)
+    #labels= {"Death rate":"Uniform(0,1)","Immigration rate":ir}
+    labels= {"Death rate":"Uniform(0,{})".format(dr),"Immigration rate":"Uniform(0,{})".format(ir)}
+    outfile = 'Persisted_Polyploids_Over_Time_dr_Uniform_{}_ir_Uniform_{}.pdf'.format(dr,ir)
+    #outfile = 'Persisted_Polyploids_Over_Time_dr_Uniform_{}_ir_{}.pdf'.format(dr,ir)
+    ts = [0] + ts;ns = [n0] + ns
+    bar_hist(ts,ns,outfile=outfile,legends=labels)
+
+def pbdimmodeling():
+    n_iterations = 1000
+    Population_sizes = []
+    for i in trange(n_iterations):
+        N = simulate_pure_birth_death_immigration(N0=8786, birth_rate=0.5, death_rate=1, immigration_rate=100, T=124)
+        Population_sizes +=[N]
+    y = np.array(Population_sizes)
+    ordinary_hist(y,bins=50,outfile='BDI_Persisted_Polyploids_Hist.pdf',xlabel='Number of persisted polyploid species',ylabel='Number of iterations')
+
+def pbdimmodelingtracktime():
+    n_iterations = 10
+    ts,ns = [],[]
+    br = 0.5; dr = 1;ir = 100;n0 = 8786
+    for t in trange(1,125):
+        ts.append(t)
+        Population_sizes = []
+        for i in range(n_iterations):
+            N = simulate_pure_birth_death_immigration(N0=n0, birth_rate=br, death_rate=dr, immigration_rate=ir, T=t)
+            Population_sizes +=[N]
+        Population_sizes = np.array(Population_sizes)
+        ns.append(Population_sizes.mean())
+    labels= {"Birth rate":br,"Death rate":dr,"Immigration rate":ir}
+    outfile = 'Persisted_Polyploids_Over_Time_Birth_{}_Death_{}_Immi_{}.pdf'.format(br,dr,ir)
+    ts = [0] + ts;ns = [n0] + ns
+    bar_hist(ts,ns,outfile=outfile,legends=labels)

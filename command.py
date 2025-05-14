@@ -6,6 +6,10 @@ from evotree.simulatepbmm import pbmmodeling
 from evotree.simulatepbdm import pbdmmodeling
 from evotree.simulatepbdm import pbdmmodelingage
 from evotree.simulatepbdm import pbdmmodelingagewithwgd
+from evotree.simulatepbdm import pdimmodeling
+from evotree.simulatepbdm import pbdimmodeling
+from evotree.simulatepbdm import pdimmodelingtracktime
+from evotree.simulatepbdm import pbdimmodelingtracktime
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
 @click.option('--verbosity', '-v', type=click.Choice(['info', 'debug']), default='info', help="Verbosity level, default = info.")
@@ -51,6 +55,22 @@ def simulatepbdmage():
 @cli.command(context_settings={'help_option_names': ['-h', '--help']})
 def simulatepbdmagewithwgd():
     pbdmmodelingagewithwgd()
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepdimwgd():
+    pdimmodeling()
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepbdimwgd():
+    pbdimmodeling()
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepdimwgdtracktime():
+    pdimmodelingtracktime()
+
+@cli.command(context_settings={'help_option_names': ['-h', '--help']})
+def simulatepbdimwgdtracktime():
+    pbdimmodelingtracktime()
 
 if __name__ == "__main__":
     cli()
