@@ -7,7 +7,15 @@ from matplotlib.patches import Rectangle
 from matplotlib import colors
 from matplotlib.colors import Normalize
 from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.colors import to_rgba
+from matplotlib.colors import to_rgba,to_rgb
+from scipy.spatial import ConvexHull
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
+from scipy.interpolate import splprep, splev
+from shapely.geometry import MultiPoint,MultiLineString,Polygon
+from shapely.ops import unary_union, polygonize
+from scipy.spatial import Delaunay
+import colorsys
 import copy
 import numpy as np
 import pandas as pd
@@ -15,6 +23,94 @@ import re
 
 Test_nonultrametric = "((((((((A:20,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,I:43):3,J:46);"
 Test_tree = "((((((((A:10,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,(I:41,J:41):2):3,K:46);"
+
+
+def alpha_shape_patch(points, alpha=1.0):
+    """
+    Return verts and codes for an alpha shape (concave hull).
+    """
+    if len(points) < 4:
+        return points, [Path.MOVETO] + [Path.LINETO]*(len(points)-2) + [Path.CLOSEPOLY]
+    tri = Delaunay(points)
+    edges = set()
+    # Loop over triangles:
+    for ia, ib, ic in tri.simplices:
+        pa, pb, pc = points[ia], points[ib], points[ic]
+        # Compute circumradius
+        a = np.linalg.norm(pa - pb)
+        b = np.linalg.norm(pb - pc)
+        c = np.linalg.norm(pc - pa)
+        s = (a + b + c) / 2.0
+        area = np.sqrt(s * (s - a) * (s - b) * (s - c))
+        if area == 0:
+            continue
+        R = a * b * c / (4.0 * area)
+        if R < 1.0 / alpha:
+            edges.update([(ia, ib), (ib, ic), (ic, ia)])
+    edge_points = [(points[i], points[j]) for i, j in edges]
+    mls = MultiLineString(edge_points)
+    polygons = list(polygonize(mls))
+    if not polygons:
+        return points, [Path.MOVETO] + [Path.LINETO]*(len(points)-2) + [Path.CLOSEPOLY]
+    concave = unary_union(polygons)
+    if isinstance(concave, Polygon):
+        hull_points = np.array(concave.exterior.coords)
+    else:
+        hull_points = np.array(concave[0].exterior.coords)
+    # Convert to verts & codes
+    verts = hull_points
+    codes = [Path.MOVETO] + [Path.LINETO]*(len(verts)-2) + [Path.CLOSEPOLY]
+    return verts, codes
+
+def hull_patch(points):
+    # Get convex hull in Cartesian
+    hull = ConvexHull(points)
+    hull_points = points[hull.vertices]
+    hull_points = np.concatenate([hull_points, hull_points[:1]])
+    # Create smooth patch
+    verts = []
+    codes = []
+    for i in range(len(hull_points) - 1):
+        p1 = hull_points[i]
+        p2 = hull_points[i + 1]
+        mid = (p1 + p2) / 2
+        if i == 0:
+            verts.append(p1)
+            codes.append(Path.MOVETO)
+        verts.append(mid)
+        codes.append(Path.CURVE3)
+        verts.append(p2)
+        codes.append(Path.CURVE3)
+    return verts,codes
+
+def smooth_hull_patch(points, smoothness=1000):
+    # Get convex hull
+    hull = ConvexHull(points)
+    hull_points = points[hull.vertices]
+    # Add midpoints between hull points to constrain curvature
+    extended_points = []
+    for i in range(len(hull_points)):
+        p1 = hull_points[i]
+        p2 = hull_points[(i + 1) % len(hull_points)]
+        mid = (p1 + p2) / 2
+        extended_points.extend([p1, mid])
+    extended_points = np.array(extended_points)
+    # Close loop
+    extended_points = np.vstack([extended_points, extended_points[0]])
+    # Fit periodic spline to hull + midpoints
+    tck, _ = splprep([extended_points[:, 0], extended_points[:, 1]], s=0, per=True)
+    u_fine = np.linspace(0, 1, smoothness)
+    x_smooth, y_smooth = splev(u_fine, tck)
+    verts = list(zip(x_smooth, y_smooth))
+    codes = [Path.MOVETO] + [Path.LINETO] * (len(verts) - 1)
+    return verts, codes
+
+def adjust_saturation(color_name, saturation_factor):
+    rgb = to_rgb(color_name)
+    r, g, b = rgb
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    s = max(0, min(1, s * saturation_factor))
+    return colorsys.hls_to_rgb(h, l, s)
 
 def gettotallength(tree):
     diss = max([tree.distance(tip) for tip in tree.get_terminals()])
@@ -128,7 +224,7 @@ class TreeBuilder:
                 exit(0)
             thetacoor,rcoor = self.allnodes_thetacoordinates[node],self.allnodes_rcoordinates[node]
             self.ax.plot((thetacoor,thetacoor),(rcoor,rcoor),marker=marker,alpha=al,markersize=ns,color=cr)
-    def highlightcladepolar(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=True,leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None):
+    def highlightcladepolar(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=True,leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None,convexhull=False,saturations=[],convexalpha=None,convexsmoothness=100):
         if len(clades) == 0:
             return
         if facecolors == []:
@@ -137,7 +233,7 @@ class TreeBuilder:
             alphas = np.full(len(clades),1)
         if lws == []:
             lws = np.full(len(clades),self.topologylw)
-        for clade,fcr,al,lw,ind in zip(clades,facecolors,alphas,lws,range(len(clades))):
+        for clade,fcr,al,sa,lw,ind in zip(clades,facecolors,alphas,saturations,lws,range(len(clades))):
             if type(clade) is not str:
                 clade = self.tree.common_ancestor(*clade).name
             thetacs = [self.allnodes_thetacoordinates[tip.name] for tip in findcladebyname(self.tree,clade).get_terminals()]
@@ -152,21 +248,55 @@ class TreeBuilder:
             if rightoffset is not None: width += self.Total_length*rightoffset
             if bottomoffset is not None: thetacoor += (self.endtheta-self.starttheta)*bottomoffset
             if topoffset is not None: height += (self.endtheta-self.starttheta)*topoffset
-            if gradual:
-                color_limits_rgba = [to_rgba(fcr, alpha=0.1),to_rgba(fcr, alpha=al)]
-                cmap = LinearSegmentedColormap.from_list("alpha_gradient",color_limits_rgba)
-                r = np.linspace(rcoor, rcoor + width, 100)
-                theta = np.linspace(thetacoor, thetacoor + height, 360)
-                R, Theta = np.meshgrid(r, theta)
-                self.ax.pcolormesh(Theta, R, R, cmap=cmap, shading='auto')
+            if convexhull:
+                thetas_ = copy.deepcopy(thetacs)
+                rs_ = copy.deepcopy(rcs)
+                # Cover all sub-nodes and all first-children of each internal node
+                for node in findcladebyname(self.tree,clade).get_nonterminals():
+                    thetas_ += [self.allnodes_thetacoordinates[node.name]]
+                    rs_ += [self.allnodes_rcoordinates[node.name]]
+                    children = findfirstchildren(node) # children = [child1,child2]
+                    thetas_ += [self.allnodes_thetacoordinates[child.name] for child in children]
+                    rs_ += [self.allnodes_rcoordinates[node.name]]*2 # r remains the r of the parent, not the clade!
+                # Convert to Cartesian
+                x = rs_ * np.cos(thetas_)
+                y = rs_ * np.sin(thetas_)
+                points = np.vstack((x, y)).T
+                if convexalpha is not None:
+                    verts,codes = alpha_shape_patch(points, alpha=convexalpha)
+                elif convexsmoothness is not None:
+                    verts,codes = smooth_hull_patch(points, smoothness=convexsmoothness)
+                else:
+                    verts,codes = hull_patch(points)
+                # Plot patch in polar (convert back)
+                x_patch, y_patch = np.array(verts).T
+                r_patch = np.sqrt(x_patch**2 + y_patch**2)
+                theta_patch = np.arctan2(y_patch, x_patch)
+                if labels != []:
+                    self.ax.plot(theta_patch, r_patch, color = 'white', alpha = 0)
+                    self.ax.fill(theta_patch, r_patch, color = adjust_saturation(fcr,sa), alpha=al, label=labels[ind])
+                else:
+                    self.ax.plot(theta_patch, r_patch, color = 'white', alpha = 0)
+                    self.ax.fill(theta_patch, r_patch, color = adjust_saturation(fcr,sa), alpha=al)
             else:
-                #r = np.linspace(rcoor, rcoor + width, 100)
-                #theta = np.linspace(thetacoor, thetacoor + height, 360)
-                #R, Theta = np.meshgrid(r, theta)
-                #self.ax.pcolormesh(Theta, R, np.ones_like(R), color=fcr, shading='auto',alpha=al)
-                theta1,theta2 = thetacoor,thetacoor + height
-                self.ax.bar(x=(theta1 + theta2) / 2, width=theta2 - theta1, height=width, bottom=rcoor, color=fcr, alpha=al)
-            if labels != []:
+                if gradual:
+                    color_limits_rgba = [to_rgba(adjust_saturation(fcr,sa), alpha=0.1),to_rgba(adjust_saturation(fcr,sa), alpha=al)]
+                    cmap = LinearSegmentedColormap.from_list("alpha_gradient",color_limits_rgba)
+                    r = np.linspace(rcoor, rcoor + width, 100)
+                    theta = np.linspace(thetacoor, thetacoor + height, 360)
+                    R, Theta = np.meshgrid(r, theta)
+                    self.ax.pcolormesh(Theta, R, R, cmap=cmap, shading='auto')
+                else:
+                    #r = np.linspace(rcoor, rcoor + width, 100)
+                    #theta = np.linspace(thetacoor, thetacoor + height, 360)
+                    #R, Theta = np.meshgrid(r, theta)
+                    #self.ax.pcolormesh(Theta, R, np.ones_like(R), color=fcr, shading='auto',alpha=al)
+                    theta1,theta2 = thetacoor,thetacoor + height
+                    if labels != []:
+                        self.ax.bar(x=(theta1 + theta2) / 2, width=theta2 - theta1, height=width, bottom=rcoor, color=adjust_saturation(fcr,sa), alpha=al, label=labels[ind])
+                    else:
+                        self.ax.bar(x=(theta1 + theta2) / 2, width=theta2 - theta1, height=width, bottom=rcoor, color=adjust_saturation(fcr,sa), alpha=al)
+            if labels != [] and not convexhull:
                 rcoor_text = rcoor
                 if labelxoffset is not None:
                     if self.brcaslen: rcoor_text += labelxoffset*self.maxi_depth
@@ -238,7 +368,7 @@ class TreeBuilder:
                 self.ax.plot((xcoor,xcoor),(ycoor,ycoor),marker=marker,alpha=al,markersize=ns,color=cr,label=legendlabel)
             else:
                 self.ax.plot((xcoor,xcoor),(ycoor,ycoor),marker=marker,alpha=al,markersize=ns,color=cr)
-    def highlightclade(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=True,leftoffset=None,rightoffset=0.01,bottomoffset=-0.01,topoffset=0.02,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None):
+    def highlightclade(self,clades=[],facecolors=[],alphas=[],saturations=[],lws=[],gradual=True,leftoffset=None,rightoffset=0.01,bottomoffset=-0.01,topoffset=0.02,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None):
         if len(clades) == 0:
             return
         if facecolors == []:
@@ -247,9 +377,13 @@ class TreeBuilder:
             alphas = np.full(len(clades),0.5)
         if lws == []:
             lws = np.full(len(clades),self.topologylw)
-        for clade,fcr,al,lw,ind in zip(clades,facecolors,alphas,lws,range(len(clades))):
+        for clade,fcr,al,sa,lw,ind in zip(clades,facecolors,alphas,saturations,lws,range(len(clades))):
             if type(clade) is not str:
-                clade = self.tree.common_ancestor(*clade).name 
+                try:
+                    clade = self.tree.common_ancestor(*clade).name 
+                except ValueError as e:
+                    print("Error finding common ancestor for:",*clade)
+                    continue
             xcoor = self.allnodes_xcoordinates[clade]
             if self.brcaslen: xcoor = self.root_depth_size_dic[clade][0]
             xcs = [self.allnodes_xcoordinates[tip.name] for tip in findcladebyname(self.tree,clade).get_terminals()]
@@ -266,11 +400,14 @@ class TreeBuilder:
             xlim = self.ax.get_xlim();ylim = self.ax.get_ylim()
             if gradual:
                 minimal = 0 if al < 0.1 else 0.1
-                color_limits_rgba = [to_rgba(fcr, alpha=0.1),to_rgba(fcr, alpha=al)]
+                color_limits_rgba = [to_rgba(adjust_saturation(fcr,sa), alpha=0.1),to_rgba(adjust_saturation(fcr,sa), alpha=al)]
                 cmap = LinearSegmentedColormap.from_list("alpha_gradient",color_limits_rgba)
                 gradient = np.linspace(0, 1, resolution_x).reshape(1, -1)
                 gradient = np.repeat(gradient, resolution_y, axis=0)
-                self.ax.imshow(gradient,extent=(xcoor, xcoor+width, ycoor, ycoor+height), origin="lower", aspect="auto", cmap=cmap, interpolation="antialiased")
+                if labels != []:
+                    self.ax.imshow(gradient,extent=(xcoor, xcoor+width, ycoor, ycoor+height), origin="lower", aspect="auto", cmap=cmap, interpolation="antialiased",label=labels[ind])
+                else:
+                    self.ax.imshow(gradient,extent=(xcoor, xcoor+width, ycoor, ycoor+height), origin="lower", aspect="auto", cmap=cmap, interpolation="antialiased")
             else:
                 #color_rgb = np.array(colors.to_rgb(fcr))
                 #color_array = np.ones((resolution_x, resolution_y, 4))
@@ -278,7 +415,10 @@ class TreeBuilder:
                 #color_array[..., 3] = al
                 #self.ax.imshow(color_array,extent=(xcoor, xcoor+width, ycoor, ycoor+height),origin="lower",aspect="auto")
                 x1,x2 = xcoor, xcoor+width
-                self.ax.bar(x=(x1 + x2) / 2, width=x2 - x1, height=height, bottom=ycoor, color=fcr, alpha=al)
+                if labels != []:
+                    self.ax.bar(x=(x1 + x2) / 2, width=x2 - x1, height=height, bottom=ycoor, color=adjust_saturation(fcr,sa), alpha=al, label=labels[ind])
+                else:
+                    self.ax.bar(x=(x1 + x2) / 2, width=x2 - x1, height=height, bottom=ycoor, color=adjust_saturation(fcr,sa), alpha=al)
             self.ax.set_xlim(xlim);self.ax.set_ylim(ylim)
             if labels != []:
                 xcoor_text = xcoor
