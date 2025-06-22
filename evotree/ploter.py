@@ -1,9 +1,88 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import numpy as np
 from scipy import stats
 import logging
+from evotree.simulatepbmm import addstats
+
 
 tableau_colors = plt.get_cmap("tab10")  # 'tab10' is the Tableau 10 color palette
+
+
+
+class Tracer:
+    def __init__(self,data=None,usedata=[],n_row=1,n_col=1,n_chains=1,fs=(5,5)):
+        """
+        :data is expected to be a *.tsv file with column names of parameters and iterations as the index
+        """
+        self.data = pd.read_csv(data,header=0,index_col=0,sep='\t')
+        self.cols = [col for col in usedata]
+        self.n_row = n_row; self.n_col = n_col; self.n_chains = n_chains; self.figsize = fs
+        assert len(usedata) <= n_row*n_col
+        for col in usedata: assert col in self.data.columns
+
+    def basic_draw(self,bin_lims=[],n_bins=[],barcolors=[],alphas=[],bw_method='silverman',kdecolors=[],kdealphas=[],lss=[],lws=[],titles=[],fontsizes=[],decimal=2):
+        fig, axes = plt.subplots(self.n_row, self.n_col, figsize = self.figsize)
+        self.fig = fig
+        if self.n_row*self.n_col <= 1: axes = [axes]
+        self.axes = axes
+        y = lambda x:format(float(x), f".{decimal}f")
+        for i, col, ax in zip(range(len(axes)),self.cols,axes):
+            samples = np.array(self.data.loc[:,col])
+            dic_stats = {"Mean":[],"Median":[],"Equal-tail 5th CI":[], "Equal-tail 95th CI":[],"HPD 5th CI":[], "HPD 95th CI":[],"ESS":[]}
+            if self.n_chains > 1: dic_stats.update({"R_hat":[]})            
+            dic_stats = addstats(dic_stats,samples,self.n_chains)
+            if len(bin_lims) >= i+1 and len(bin_lims[i])>1: maxi_,mini_ = bin_lims[i]
+            else: maxi_,mini_ = np.max(samples)*1.1,np.min(samples)*0.9
+            if len(n_bins) >= i+1 and len(n_bins[i])>0: bins_ = n_bins[i]
+            else: bins_ = 50
+            if len(barcolors) >= i+1 and len(barcolors[i])>0: color_ = len(barcolors[i])
+            else: color_ = "gray"
+            if len(alphas) >= i+1 and len(alphas[i])>0: alpha_ = alphas[i]
+            else: alpha_ = 0.8
+            Hs, Bins, patches = ax.hist(samples, bins = np.linspace(mini_,maxi_,num=bins_),color=color_, alpha=alpha_, rwidth=0.8,label='Posterior samples')
+            CHF = get_totalH(Hs)
+            scaling = CHF*(maxi_-mini_)/bins_
+            kde_x = np.linspace(mini_,maxi_,num=bins_*10)
+            kde_y=stats.gaussian_kde(samples,bw_method=bw_method).pdf(kde_x)
+            if len(kdecolors) >= i+1 and len(kdecolors[i])>0: kdecolor_ = len(kdecolors[i])
+            else: kdecolor_ = "black"
+            if len(kdealphas) >= i+1 and len(kdealphas[i])>0: kdealpha_ = kdealphas[i]
+            else: kdealpha_ = 0.8
+            if len(lss) >= i+1 and len(lss[i])>0: ls_ = lss[i]
+            else: ls_ = '-'
+            if len(lws) >= i+1 and len(lws[i])>0: lw_ = lws[i]
+            else: lw_ = 1
+            ax.plot(kde_x, kde_y*scaling, color=kdecolor_,alpha=kdealpha_, ls=ls_, lw=lw_,label='KDE curve')
+            if len(fontsizes) >= i+1 and len(fontsizes[i])>0: fontsize_ = fontsizes[i]
+            else: fontsize_ = 10
+            if len(titles) >= i+1 and len(titles[i])>0:
+                title_ = titles[i]
+                ax.set_title(title_,fontsize=fontsize_)
+            else: plt.suptitle("Posterior distribution", fontsize=fontsize_)
+            ax.axvline(x=dic_stats["Mean"][0], ymin=0, ymax=1, color="k", alpha=0.8, ls=':', lw=1, label="Mean: {}".format(y(dic_stats["Mean"][0])))
+            ax.axvline(x=dic_stats["Median"][0], ymin=0, ymax=1, color="k", alpha=0.8, ls='--', lw=1, label="Median: {}".format(y(dic_stats["Median"][0])))
+            mode, maxim = kde_mode(kde_x, kde_y)
+            ax.axvline(x=mode, ymin=0, ymax=1, color="k", alpha=0.8, ls='-', lw=1, label="Mode: {}".format(y(mode)))
+            ax.axvline(x=dic_stats["Equal-tail 5th CI"][0], ymin=0, ymax=1, color="k", alpha=0.8, ls='-.', lw=1, label="Equal-tail 5th CI: {}".format(y(dic_stats["Equal-tail 5th CI"][0])))
+            ax.axvline(x=dic_stats["Equal-tail 95th CI"][0], ymin=0, ymax=1, color="k", alpha=0.8, ls='-.', lw=1, label="Equal-tail 95th CI: {}".format(y(dic_stats["Equal-tail 95th CI"][0])))
+            ax.axvline(x=dic_stats["HPD 5th CI"][0], ymin=0, ymax=1, color="k", alpha=0.8, ls=(0,(3,1,1,1)), lw=1, label="HPD 5th CI: {}".format(y(dic_stats["HPD 5th CI"][0])))
+            ax.axvline(x=dic_stats["HPD 95th CI"][0], ymin=0, ymax=1, color="k", alpha=0.8, ls=(0,(3,1,1,1)), lw=1, label="HPD 95th CI: {}".format(y(dic_stats["HPD 95th CI"][0])))
+            ax.plot([],[],color='k',label='ESS:{}'.format(y(dic_stats["ESS"][0])),lw=1)
+            if self.n_chains > 1: ax.plot([],[],color='k',label='R_hat:{}'.format(y(dic_stats["R_hat"][0])),lw=1)
+            ax.legend(loc=0,fontsize=10,frameon=False)
+            ax.set_xlabel(col);ax.set_ylabel("Number of samples")
+            #ax.spines['top'].set_visible(False)
+            #ax.spines['right'].set_visible(False)
+    
+    def saveplot(self,output="Posterior_Samples.pdf",**kwargs):
+        self.fig.tight_layout()
+        self.fig.savefig(output,**kwargs)
+
+def kde_mode(kde_x, kde_y):
+    maxy_iloc = np.argmax(kde_y)
+    mode = kde_x[maxy_iloc]
+    return mode, max(kde_y)
 
 
 def get_totalH(Hs):

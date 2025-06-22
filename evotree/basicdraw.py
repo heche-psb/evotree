@@ -155,7 +155,7 @@ def findcladebyname(tree,name):
     return next(tree.find_clades(name))
 
 class TreeBuilder:
-    def __init__(self, tree, topologylw=1,userfig=None,userax=None,fs=(10,10),tiplabelroffset=0.02,tiplabelthetaoffset=0,starttheta=0,tiplabelxoffset=0.02,tiplabelyoffset=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=True,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=False,nulw=1,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=3,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',nodelabelxoffset=0.02,nodelabelyoffset=0,ubrobject=None,extinct_lineages=[],brcaslen=False):
+    def __init__(self, tree, topologylw=1,userfig=None,userax=None,fs=(10,10),tiplabelroffset=0.02,tiplabelthetaoffset=0,tiplabelxoffset=0.02,tiplabelyoffset=0,showtiplabel=True,plottipnode=False,shownodelabel=False,plotnnode=True,nodelabelroffset=0.01,nodelabelthetaoffset=0,plotnodeuncertainty=False,nulw=1,nucalpha=0.4,nuccolor='blue',userbranchcolor=None,tiplabelalign='left',nodelabelalign='left',tiplabelsize=10,tiplabelalpha=1,tiplabelcolor='k',tipnodesize=6,tipnodecolor='k',tipnodealpha=1,tiplabelstyle='normal',tipnodemarker='o',nodelabelsize=10,nodelabelalpha=1,nodelabelcolor='k',nnodesize=3,nnodecolor='k',nnodealpha=1,nodelabelstyle='normal',nnodemarker='o',nodelabelxoffset=0.02,nodelabelyoffset=0,ubrobject=None,extinct_lineages=[],brcaslen=False):
         self.tree = tree
         self.root = tree.root
         self.root_depth_size_dic,self.maxi_depth,self.depths_sizeordered,self.clades_size,self.clades_alltips = getdepths_sizes(self.root)
@@ -165,7 +165,7 @@ class TreeBuilder:
         self.Total_length = gettotallength(self.tree)
         self.Total_species = gettotalspecies(self.tree)
         self.topologylw = topologylw;self.userfig = userfig;self.userax = userax
-        self.fs=fs;self.tiplabelroffset = tiplabelroffset;self.tiplabelthetaoffset = tiplabelthetaoffset;self.starttheta = starttheta
+        self.fs=fs;self.tiplabelroffset = tiplabelroffset;self.tiplabelthetaoffset = tiplabelthetaoffset
         self.tiplabelxoffset = tiplabelxoffset;self.tiplabelyoffset = tiplabelyoffset;self.showtiplabel = showtiplabel
         self.plottipnode = plottipnode;self.shownodelabel = shownodelabel;self.plotnnode = plotnnode;self.nodelabelroffset = nodelabelroffset
         self.nodelabelthetaoffset = nodelabelthetaoffset
@@ -185,8 +185,9 @@ class TreeBuilder:
         all_ids = node_ids + tip_ids
         #assert len(all_ids) == len(set(all_ids))
         assert len(tip_ids) == len(set(tip_ids))
-    def polardraw(self,polar=355,log="Plotting circular tree"):
+    def polardraw(self,polar=355,log="Plotting polar tree",start=0):
         logging.info(log)
+        self.starttheta = start
         self.endtheta = polar
         if self.userfig is None and self.userax is None:
             fig, ax = plt.subplots(1,1,figsize=self.fs,subplot_kw={'projection': 'polar'})
@@ -205,7 +206,7 @@ class TreeBuilder:
         self.ax.set_rticks([])
         self.ax.set_xticks([])
         self.ax.axis('off')
-    def highlightnodepolar(self,nodes=[],colors=[],nodesizes=[],nodealphas=[],nodemarkers=[]):
+    def highlightnodepolar(self,nodes=[],colors=[],nodesizes=[],nodealphas=[],nodemarkers=[],addlegend=False,legendlabel=None):
         if len(nodes) == 0:
             return
         if colors == []:
@@ -216,15 +217,18 @@ class TreeBuilder:
             nodealphas = np.full(len(nodes),1)
         if nodemarkers == []:
             nodemarkers = ['o' for i in range(len(nodes))]
-        for node,cr,ns,al,marker in zip(nodes,colors,nodesizes,nodealphas,nodemarkers):
+        for node,cr,ns,al,marker,ind in zip(nodes,colors,nodesizes,nodealphas,nodemarkers,range(len(nodes))):
             if type(node) is not str:
                 node = self.tree.common_ancestor(*node).name
             if node not in self.allnodes_thetacoordinates or node not in self.allnodes_rcoordinates:
                 logging.error("Cannot find {} in the tree!".format(node))
                 exit(0)
             thetacoor,rcoor = self.allnodes_thetacoordinates[node],self.allnodes_rcoordinates[node]
-            self.ax.plot((thetacoor,thetacoor),(rcoor,rcoor),marker=marker,alpha=al,markersize=ns,color=cr)
-    def highlightcladepolar(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=True,leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None,convexhull=False,saturations=[],convexalpha=None,convexsmoothness=100):
+            if ind == 0 and addlegend:
+                self.ax.plot((thetacoor,thetacoor),(rcoor,rcoor),marker=marker,alpha=al,markersize=ns,color=cr,label=legendlabel)
+            else:
+                self.ax.plot((thetacoor,thetacoor),(rcoor,rcoor),marker=marker,alpha=al,markersize=ns,color=cr)
+    def highlightcladepolar(self,clades=[],facecolors=[],alphas=[],lws=[],gradual=False,leftoffset=None,rightoffset=None,bottomoffset=None,topoffset=None,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None,convexhull=False,saturations=[],convexalpha=None,convexsmoothness=100,labelpositions=[]):
         if len(clades) == 0:
             return
         if facecolors == []:
@@ -233,7 +237,11 @@ class TreeBuilder:
             alphas = np.full(len(clades),1)
         if lws == []:
             lws = np.full(len(clades),self.topologylw)
-        for clade,fcr,al,sa,lw,ind in zip(clades,facecolors,alphas,saturations,lws,range(len(clades))):
+        if saturations == []:
+            saturations = np.full(len(clades),1)
+        if labelpositions ==[]:
+            labelpositions = np.full(len(clades),"top")
+        for clade,fcr,al,sa,lw,ind,lpos in zip(clades,facecolors,alphas,saturations,lws,range(len(clades)),labelpositions):
             if type(clade) is not str:
                 clade = self.tree.common_ancestor(*clade).name
             thetacs = [self.allnodes_thetacoordinates[tip.name] for tip in findcladebyname(self.tree,clade).get_terminals()]
@@ -283,7 +291,7 @@ class TreeBuilder:
                     color_limits_rgba = [to_rgba(adjust_saturation(fcr,sa), alpha=0.1),to_rgba(adjust_saturation(fcr,sa), alpha=al)]
                     cmap = LinearSegmentedColormap.from_list("alpha_gradient",color_limits_rgba)
                     r = np.linspace(rcoor, rcoor + width, 100)
-                    theta = np.linspace(thetacoor, thetacoor + height, 360)
+                    theta = np.linspace(thetacoor, thetacoor + height, 100)
                     R, Theta = np.meshgrid(r, theta)
                     self.ax.pcolormesh(Theta, R, R, cmap=cmap, shading='auto')
                 else:
@@ -301,7 +309,8 @@ class TreeBuilder:
                 if labelxoffset is not None:
                     if self.brcaslen: rcoor_text += labelxoffset*self.maxi_depth
                     else: rcoor_text += labelxoffset*self.Total_length
-                thetacoor_text = thetacoor+height
+                if lpos is 'bottom': thetacoor_text = thetacoor
+                else: thetacoor_text = thetacoor+height
                 if labelyoffset is not None: thetacoor_text += labelyoffset*(self.endtheta-self.starttheta)
                 if labelsize is None: labelsize = [self.tiplabelsize for i in range(len(clades))]
                 if labelstyle is None: labelstyle = ['normal' for i in range(len(clades))]
@@ -368,7 +377,7 @@ class TreeBuilder:
                 self.ax.plot((xcoor,xcoor),(ycoor,ycoor),marker=marker,alpha=al,markersize=ns,color=cr,label=legendlabel)
             else:
                 self.ax.plot((xcoor,xcoor),(ycoor,ycoor),marker=marker,alpha=al,markersize=ns,color=cr)
-    def highlightclade(self,clades=[],facecolors=[],alphas=[],saturations=[],lws=[],gradual=True,leftoffset=None,rightoffset=0.01,bottomoffset=-0.01,topoffset=0.02,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None):
+    def highlightclade(self,clades=[],facecolors=[],alphas=[],saturations=[],lws=[],gradual=True,leftoffset=None,rightoffset=0.01,bottomoffset=-0.01,topoffset=0.02,labels=[],labelsize=None,labelstyle=None,labelcolors=[],labelalphas=[],labelva='center',labelha='center',labelrt=None,labelboxcolors=[],labelboxedgecolors=[],labelboxalphas=[],labelboxpads=[],labelxoffset=None,labelyoffset=None,labelpositions=[]):
         if len(clades) == 0:
             return
         if facecolors == []:
@@ -377,7 +386,9 @@ class TreeBuilder:
             alphas = np.full(len(clades),0.5)
         if lws == []:
             lws = np.full(len(clades),self.topologylw)
-        for clade,fcr,al,sa,lw,ind in zip(clades,facecolors,alphas,saturations,lws,range(len(clades))):
+        if labelpositions == []:
+            labelpositions = np.full(len(clades),"top")
+        for clade,fcr,al,sa,lw,ind,lpos in zip(clades,facecolors,alphas,saturations,lws,range(len(clades)),labelpositions):
             if type(clade) is not str:
                 try:
                     clade = self.tree.common_ancestor(*clade).name 
@@ -427,7 +438,8 @@ class TreeBuilder:
                         xcoor_text += labelxoffset*self.maxi_depth
                     else:
                         xcoor_text += labelxoffset*self.Total_length
-                ycoor_text = ycoor+height
+                if lpos == "bottom": ycoor_text = ycoor
+                else: ycoor_text = ycoor+height
                 if labelyoffset is not None: ycoor_text += labelyoffset*len(self.tips)
                 if labelsize is None: labelsize = [self.tiplabelsize for i in range(len(clades))]
                 if labelstyle is None: labelstyle = ['normal' for i in range(len(clades))]
@@ -510,7 +522,7 @@ class TreeBuilder:
                 if None in nodeuncertainty:
                     continue
                 nodeuncertainty = -np.array(nodeuncertainty)+self.Total_length
-                self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(nodeuncertainty[1],nodeuncertainty[0]),lw=self.nuclw,color=nucc,alpha=self.nucalpha)
+                self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(nodeuncertainty[1],nodeuncertainty[0]),lw=self.nulw,color=self.nuccolor,alpha=self.nucalpha)
         self.allnodes_thetacoordinates = {**self.allnodes_thetacoordinates,**self.nodes_thetacoordinates}
         self.allnodes_rcoordinates = {**self.allnodes_rcoordinates,**self.nodes_rcoordinates}
     def drawlinespolar(self,rbr=False):
