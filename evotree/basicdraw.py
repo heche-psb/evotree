@@ -13,6 +13,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from scipy.interpolate import splprep, splev
 from shapely.geometry import MultiPoint,MultiLineString,Polygon
+from matplotlib.patches import Wedge
 from shapely.ops import unary_union, polygonize
 from scipy.spatial import Delaunay
 import colorsys
@@ -24,6 +25,42 @@ import re
 Test_nonultrametric = "((((((((A:20,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,I:43):3,J:46);"
 Test_tree = "((((((((A:10,(B:1,C:1):9):1,D:11):4,E:15):3,F:18):12,G:30):11,H:41):2,(I:41,J:41):2):3,K:46);"
 
+# Cartesian -> polar
+def cart2polar(x, y):
+    r = np.hypot(x, y)
+    theta = np.arctan2(y, x)
+    return theta, r
+
+def polar_ring_segment(r0, dr, theta0, dtheta, n=1000):
+    """
+    Generate theta and r arrays for a ring-shaped rectangular segment in polar coordinates.
+    Parameters:
+    - r0: float, inner radius (start radius)
+    - dr: float, radial width (thickness)
+    - theta0: float, start angle in radians
+    - dtheta: float, angular width in radians
+    - n: int, number of points to sample along each edge (default 100)
+    Returns:
+    - theta: 1D numpy array of angular coordinates (radians)
+    - r: 1D numpy array of radius coordinates
+    """
+    r1 = r0 + dr
+    theta1 = theta0 + dtheta
+    # Top arc (outer radius)
+    theta_top = np.linspace(theta0, theta1, n)
+    r_top = np.full_like(theta_top, r1)
+    # Right edge
+    theta_right = np.full(n, theta1)
+    r_right = np.linspace(r1, r0, n)
+    # Bottom arc (inner radius)
+    theta_bottom = np.linspace(theta1, theta0, n)
+    r_bottom = np.full_like(theta_bottom, r0)
+    # Left edge
+    theta_left = np.full(n, theta0)
+    r_left = np.linspace(r0, r1, n)
+    theta = np.concatenate([theta_top, theta_right, theta_bottom, theta_left])
+    r = np.concatenate([r_top, r_right, r_bottom, r_left])
+    return theta, r
 
 def alpha_shape_patch(points, alpha=1.0):
     """
@@ -383,7 +420,9 @@ class TreeBuilder:
         if facecolors == []:
             facecolors = ['gray' for i in range(len(clades))]
         if alphas == []:
-            alphas = np.full(len(clades),0.5)
+            alphas = np.full(len(clades),1)
+        if saturations ==[]:
+            saturations = np.full(len(clades),1)
         if lws == []:
             lws = np.full(len(clades),self.topologylw)
         if labelpositions == []:
@@ -579,27 +618,157 @@ class TreeBuilder:
             #self.ax.plot(thetass,rss,color=branch_colors.get(node.name,'k'),lw=self.topologylw,solid_joinstyle='round')
             #crs +=[branch_colors.get(node.name,'black') for _ in range(len(thetas))]
         #self.ax.plot(thetass,crs,color='k',lw=self.topologylw)
-    def drawscalepolar(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='-'):
+
+    def plottickerpolar(self,x0,x1,y0,y1,color='red',alpha=0.4):
+        bbox = self.ax.get_window_extent()
+        center_x_pixels = bbox.x0 + bbox.width / 2
+        center_y_pixels = bbox.y0 + bbox.height / 2
+        center_theta, center_r = self.ax.transData.inverted().transform((center_x_pixels, center_y_pixels))
+        self.ax.plot((x0-center_r,x1-center_r),(y0,y1),'k-', transform=self.ax.transData._b,lw=1)
+
+
+    def drawscalepolar(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='-',geoscaling=1,fullscalealpha=1,addgeo=False,addgeoline=False,addgeoreverse=False,fulltickscaler=2.5,fullscaletickcolor='k',fullscaleticklw=None,addfulltickline=False,geoalpha=1,geosaturation=1,geolw=None,addfulltickring=False,fullscaletickringcolors=[],fullscaletickringalphas=[],notick=False,geolowery=-0.035,geoheight=0.02,tickupper=0,ticklowery=-0.01,geolabelcolor='k',geofontsize=4,boundary_to_show=[],geotimetickyoffset=0.005,geolinealpha=1):
         if plotfulllengthscale:
             rmin,rmax = 0,self.Total_length
             if fullscalelw is None: fullscalelw=self.topologylw
             if fullscalexticks is None: fullscalexticks = np.linspace(rmin,rmax,6)
-            for tick in fullscalexticks:
-                thetas = np.linspace(self.starttheta/180*np.pi,self.endtheta/180*np.pi, 500)
-                rs = np.full(len(thetas),tick)
-                self.ax.plot(thetas,rs,lw=fullscalelw,color=fullscalecolor,ls=fullscalels)
+            if fullscaleticklw is None: fullscaleticklw=self.topologylw
+            if geolw is None: geolw = self.topologylw
+            if fullscaletickringcolors == []: fullscaletickringcolors = np.full(len(fullscalexticks),'gray')
+            if fullscaletickringalphas == []: fullscaletickringalphas = np.full(len(fullscalexticks),1)
+            for tick,tickringcr,tickringal,ind in zip(fullscalexticks,fullscaletickringcolors,fullscaletickringalphas,range(len(fullscalexticks))):
+                tick = tick/geoscaling
+                #theta_ringline = np.linspace(self.starttheta/180*np.pi, (self.starttheta-fulltickscaler)/180*np.pi, 1000)
+                #ticks = np.full(len(theta_ringline),tick)
+                if not notick:
+                    # TODO: calculate the arc length and recover the theta span for each tick
+                    self.plottickerpolar(tick,tick,tickupper,ticklowery,color=fullscaletickcolor,alpha=fullscalealpha)
+                    #self.ax.errorbar(self.starttheta/180*np.pi, tick, xerr=None, yerr=0, capsize=5, fmt="", c=fullscaletickcolor)
+                    #self.ax.plot(theta_ringline, ticks, color=fullscaletickcolor, linewidth=fullscaleticklw)
+                if addfulltickline:
+                    thetas = np.linspace(self.starttheta/180*np.pi,self.endtheta/180*np.pi, 1000)
+                    rs = np.full(len(thetas),tick)
+                    self.ax.plot(thetas,rs,lw=fullscalelw,color=fullscalecolor,ls=fullscalels,alpha=fullscalealpha)
+                if addfulltickring:
+                    #theta_ring = np.linspace(self.starttheta/180*np.pi, self.endtheta/180*np.pi, 1000)
+                    #ticks = np.full(len(theta_ring),tick)
+                    self.ax.bar(x=(self.starttheta+self.endtheta)/180*np.pi / 2, width=(self.endtheta-self.starttheta)/180*np.pi, height=(fullscalexticks[ind]/geoscaling-fullscalexticks[ind-1]/geoscaling), bottom=self.Total_length-fullscalexticks[ind]/geoscaling, color=tickringcr, alpha=tickringal)
+                    #self.ax.fill(theta_ring, ticks, color=tickringcr, alpha=tickringal)
         if inipoint!=endpoint:
             degree1,r1 = inipoint
             degree2,r2 = endpoint
             theta1,theta2 = degree1/180*np.pi,degree2/180*np.pi
             if scalelw is None: slw = self.topologylw
             self.ax.plot((theta1,theta2),(r1,r2),color=self.scalecolor,lw=slw) 
-    def drawscale(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,fullscalelw=None,fullscaley=0,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=0.1,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k',fullscaleticklabeloffset=0.1,scaler_y=0.25,addgeo=False,geoscaling=1,geouppery=0.5,geolowery=0.1):
+        if addgeo:
+            time = 0
+            epoch_boundaries = [2.58,23.03,66.0,145.0,201.4,251.902,298.9,358.9,419.2,443.8,485.4,538.8,635,720,1000,1200,1400,1600,2500,2800,3200,3600,4031]
+            epoch_labels = ["Quaternary","Neogene","Paleogene","Cretaceous","Jurassic","Triassic","Permian","Carboniferous","Devonian","Silurian","Ordovician","Cambrian","Ediacaran","Cryogenian","Tonian","Stenian","Ectasian","Calymmian","Paleo-proterozoic","Neo-archean","Meso-archean","Paleo-archean","Eo-archean"]
+            epoch_colors = ["#fff880ff","#fddd1cff","#f89b5cff","#80cf5cff","#33bde9ff","#8a3ea4ff","#e74d40ff","#69b2b0ff","#ca9547ff","#b3e4c2ff","#00a990ff","#83ad6aff","#fcd56eff","#fbc961ff","#fabd55ff","#fcd69cff","#fbca8eff","#fabe80ff","#f1457eff","#f799c7ff","#f467b2ff","#f140a9ff","#d9058dff"]
+            self.scaled_Total_length = self.Total_length*geoscaling
+            left_bound = 0
+            tmp_bottom = self.starttheta/180*np.pi
+            bbox = self.ax.get_window_extent()
+            center_x_pixels = bbox.x0 + bbox.width / 2
+            center_y_pixels = bbox.y0 + bbox.height / 2
+            center_theta, center_r = self.ax.transData.inverted().transform((center_x_pixels, center_y_pixels))
+            if addgeoreverse:
+                tmp_height = (self.endtheta-self.starttheta)/180*np.pi
+            else:
+                tmp_height = (self.endtheta-360)/180*np.pi
+            for boundary,la,cr in zip(epoch_boundaries,epoch_labels,epoch_colors):
+                cr = adjust_saturation(cr,geosaturation)
+                if self.scaled_Total_length >= boundary:
+                    left = self.scaled_Total_length - boundary
+                    bottom = tmp_bottom
+                    width = boundary - left_bound
+                    height = tmp_height
+                    # Alternative way of drawing ring
+                        #angular_range = np.linspace(self.starttheta, self.endtheta, 1000)/180*np.pi
+                        #self.ax.fill_between(angular_range,left/geoscaling,(left+width)/geoscaling,color=cr,alpha=geoalpha,lw=0)
+                    thetas, rs = polar_ring_segment(left/geoscaling,width/geoscaling,tmp_bottom,tmp_height,n=1000)
+                    self.ax.fill(thetas, rs, color=cr, alpha=geoalpha,lw=0)
+                    if addgeoline:
+                        theta_ringline = np.linspace(tmp_bottom, (self.endtheta-self.starttheta)/180*np.pi, 1000)
+                        r_ringline = np.full_like(theta_ringline, (left+width)/geoscaling)
+                        self.ax.plot(theta_ringline, r_ringline, color=cr, alpha=geolinealpha, ls=fullscalels, lw=geolw)
+                else:
+                    left = 0
+                    bottom = tmp_bottom
+                    width = self.scaled_Total_length - left_bound
+                    height = tmp_height
+                    # Alternative way of drawing ring
+                        #angular_range = np.linspace(self.starttheta, self.endtheta, 1000)/180*np.pi
+                        #self.ax.fill_between(angular_range,left/geoscaling,(left+width)/geoscaling,color=cr,alpha=geoalpha,lw=0)
+                    thetas, rs = polar_ring_segment(left/geoscaling,width/geoscaling,tmp_bottom,tmp_height,n=1000)
+                    self.ax.fill(thetas, rs, color=cr, alpha=geoalpha,lw=0)
+                    if addgeoline:
+                        theta_ringline = np.linspace(tmp_bottom, (self.endtheta-self.starttheta)/180*np.pi, 1000)
+                        r_ringline = np.full_like(theta_ringline, (left+width)/geoscaling)
+                        self.ax.plot(theta_ringline, r_ringline, color=cr, alpha=geolinealpha, ls=fullscalels,lw=geolw)
+                    break
+                left_bound = boundary
+            left_bound = 0
+            #TODO: add number of mya
+            drawn_numer = []
+            for boundary,la,cr in zip(epoch_boundaries,epoch_labels,epoch_colors):
+                if self.scaled_Total_length >= boundary:
+                    left = self.scaled_Total_length - boundary
+                    bottom = geolowery
+                    width = boundary - left_bound
+                    height = geoheight
+                    rect = Rectangle((left/geoscaling-center_r, bottom), width/geoscaling, height, facecolor=cr,edgecolor=None, alpha=1, lw=0)
+                    rect.set_transform(self.ax.transData._b)
+                    self.ax.add_patch(rect)
+                    if boundary_to_show != []:
+                        if left_bound ==0:
+                            left_num_x,left_num_y = self.scaled_Total_length/geoscaling-center_r,bottom-geotimetickyoffset
+                            if left_bound not in drawn_numer:
+                                self.ax.text(left_num_x,left_num_y,"0",transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='top')
+                                self.ax.text(left_num_x,left_num_y,"  mya",transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='left',va='top')
+                                drawn_numer += [0]
+                    if la in boundary_to_show:
+                        x,y = left/geoscaling-center_r+width/geoscaling/2,bottom+height/2
+                        self.ax.text(x,y,la,transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='center')
+                        left_num_x,left_num_y = left/geoscaling-center_r,bottom-geotimetickyoffset
+                        if boundary not in drawn_numer and la != "Neogene":
+                            self.ax.text(left_num_x,left_num_y,boundary,transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='top')
+                            drawn_numer += [boundary]
+                        right_num_x,right_num_y = (self.scaled_Total_length-left_bound)/geoscaling-center_r,bottom-geotimetickyoffset
+                        if left_bound not in drawn_numer and la != "Neogene":
+                            self.ax.text(right_num_x,right_num_y,left_bound,transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='top')
+                            drawn_numer += [left_bound]
+                else:
+                    left = 0
+                    bottom = geolowery
+                    width = self.scaled_Total_length - left_bound
+                    height = geoheight
+                    rect = Rectangle((left/geoscaling-center_r, bottom), width/geoscaling, height, facecolor=cr,edgecolor=None, alpha=1, lw=0)
+                    rect.set_transform(self.ax.transData._b)
+                    self.ax.add_patch(rect)
+                    if la in boundary_to_show:
+                        x,y = left/geoscaling-center_r+width/geoscaling/2,bottom+height/2
+                        self.ax.text(x,y,la,transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='center')
+                        left_num_x,left_num_y = left/geoscaling-center_r,bottom-geotimetickyoffset
+                        if boundary not in drawn_numer and la != "Neogene":
+                            #self.ax.text(left_num_x,left_num_y,boundary,transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='top')
+                            self.ax.text(left_num_x,left_num_y,round(self.scaled_Total_length,1),transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='top')
+                            drawn_numer += [boundary]
+                        right_num_x,right_num_y = (self.scaled_Total_length-left_bound)/geoscaling-center_r,bottom-geotimetickyoffset
+                        if left_bound not in drawn_numer and la != "Neogene":
+                            self.ax.text(right_num_x,right_num_y,left_bound,transform=self.ax.transData._b,fontsize=geofontsize,color=geolabelcolor,ha='center',va='top')
+                            drawn_numer += [left_bound]
+                    break
+                left_bound = boundary
+
+
+    def drawscale(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,fullscalelw=None,fullscaley=0,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=0.1,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k',fullscaleticklabeloffset=0.1,scaler_y=0.25,addgeo=False,geoscaling=1,geouppery=0.5,geolowery=0.1,boundary_to_show=[],geofontsize=None,geolabelcolor='k'):
         Ymin,Ymax = [],[]
         if plotfulllengthscale:
             if fullscalelw is None: fullscalelw = self.topologylw
             if fullscaleticklw is None: fullscaleticklw = self.topologylw
             if fullscaleticklabelsize is None: fullscaleticklabelsize = self.tiplabelsize
+            if geofontsize is None: geofontsize = self.tiplabelsize
             xmin,xmax = 0,self.Total_length*geoscaling
             ycoordi = fullscaley
             if fullscalexticks is None:
@@ -617,7 +786,7 @@ class TreeBuilder:
                 tick = tick/geoscaling
                 self.ax.plot((tick,tick), (ycoordi,ycoordi-y2), color=fullscaletickcolor, linewidth=fullscaleticklw)
                 self.ax.text(tick,ycoordi-y2-fullscaleticklabeloffset,ticklabel,fontsize=fullscaleticklabelsize,color=fullscaleticklabelcolor,ha='center',va='top')
-            self.ax.text(self.Total_length+self.Total_length*self.tiplabelxoffset,ycoordi-y2-fullscaleticklabeloffset,"Mya",ha='left',va='top',fontsize=fullscaleticklabelsize,color=fullscaleticklabelcolor)
+            self.ax.text(self.Total_length+self.Total_length*self.tiplabelxoffset,ycoordi-y2-fullscaleticklabeloffset,"mya",ha='left',va='top',fontsize=fullscaleticklabelsize,color=fullscaleticklabelcolor)
             y2+=fullscaleticklabeloffset
         else:
             ycoordi,y2 = 0,0
@@ -634,7 +803,7 @@ class TreeBuilder:
         if addgeo:
             time = 0
             epoch_boundaries = [2.58,23.03,66.0,145.0,201.4,251.902,298.9,358.9,419.2,443.8,485.4,538.8,635,720,1000,1200,1400,1600,2500,2800,3200,3600,4031]
-            epoch_labels = ["","Neo","Paleogene","Cretaceous","Jurassic","Triassic","Permian","Carboniferous","Devonian","Silurian","Ordovician","Cambrian","Ediacaran","Cryogenian","Tonian","Stenian","Ectasian","Calymmian","Paleo-proterozoic","Neo-archean","Meso-archean","Paleo-archean","Eo-archean"]
+            epoch_labels = ["Quaternary","Neogene","Paleogene","Cretaceous","Jurassic","Triassic","Permian","Carboniferous","Devonian","Silurian","Ordovician","Cambrian","Ediacaran","Cryogenian","Tonian","Stenian","Ectasian","Calymmian","Paleo-proterozoic","Neo-archean","Meso-archean","Paleo-archean","Eo-archean"]
             epoch_colors = ["#fff880ff","#fddd1cff","#f89b5cff","#80cf5cff","#33bde9ff","#8a3ea4ff","#e74d40ff","#69b2b0ff","#ca9547ff","#b3e4c2ff","#00a990ff","#83ad6aff","#fcd56eff","#fbc961ff","#fabd55ff","#fcd69cff","#fbca8eff","#fabe80ff","#f1457eff","#f799c7ff","#f467b2ff","#f140a9ff","#d9058dff"]
             self.scaled_Total_length = self.Total_length*geoscaling
             left_bound = 0
@@ -646,6 +815,9 @@ class TreeBuilder:
                     height = geouppery
                     rect = Rectangle((left/geoscaling, bottom), width/geoscaling, height, facecolor=cr, alpha=1)
                     self.ax.add_patch(rect)
+                    if la in boundary_to_show:
+                        x,y = left/geoscaling+width/geoscaling/2,bottom+height/2
+                        self.ax.text(x,y,la,fontsize=geofontsize,color=geolabelcolor,ha='center',va='center')
                 else:
                     left = 0
                     bottom = geolowery
@@ -653,21 +825,28 @@ class TreeBuilder:
                     height = geouppery
                     rect = Rectangle((left/geoscaling, bottom), width/geoscaling, height, facecolor=cr, alpha=1)
                     self.ax.add_patch(rect)
+                    if la in boundary_to_show:
+                        x,y = left/geoscaling+width/geoscaling/2,bottom+height/2
+                        self.ax.text(x,y,la,fontsize=geofontsize,color=geolabelcolor,ha='center',va='center')
                     break
                 left_bound = boundary
         self.ax.set_ylim(Ymin-scaler_y,Ymax+scaler_y)
-    def drawwgdpolar(self,wgd=None,cr='r',al=0.6,lw=4):
+    def drawwgdpolar(self,wgd=None,cr='r',al=0.6,lw=4,addlegend=False,legendlabel=None):
         if wgd is None:
             return
         logging.info("Adding WGD")
         df = pd.read_csv(wgd,header=0,index_col=None,sep='\t').drop_duplicates(subset=['WGD ID'])
         self.allnodes_thetacoordinates = {**self.nodes_thetacoordinates,**self.tips_thetacoordinates}
-        for fullsp,hcr in zip(df["Full_Species"],df["90% HCR"]):
+        for fullsp,hcr,ind in zip(df["Full_Species"],df["90% HCR"],range(df.shape[0])):
             sps = fullsp.split(", ")
             node = self.tree.common_ancestor(*sps)
             lower,upper = [float(i)/100 for i in hcr.split('-')]
             thetacoordi = self.allnodes_thetacoordinates[node.name]
-            self.ax.plot((thetacoordi,thetacoordi),(self.Total_length-upper,self.Total_length-lower),lw=lw,color=cr,alpha=al)
+            if ind == 0 and addlegend:
+                self.ax.plot((thetacoordi,thetacoordi),(self.Total_length-upper,self.Total_length-lower),lw=lw,color=cr,alpha=al,label=legendlabel)
+            else:
+                self.ax.plot((thetacoordi,thetacoordi),(self.Total_length-upper,self.Total_length-lower),lw=lw,color=cr,alpha=al)
+
     def drawtips(self):
         tips_ycoordinates = {}
         ycoordinate = 0
@@ -907,15 +1086,21 @@ class TreeBuilder:
             #self.ax.text(self.Total_length*(1+xoffset)+scaled_Mini,1-yoffset-labeloffset,ha='center',va='top',fontsize=labelsize)
             #self.ax.text(self.Total_length*(1+xoffset)+scaled_Half,0.5-yoffset-labeloffset,'{:.{}f}'.format(real_Half,decimal),ha='center',va='top',fontsize=labelsize)
             self.ax.text(self.Total_length*(1+xoffset)+scaled_Maxi,0.5-yoffset-labeloffset,'{:.{}f}'.format(real_Maxi,decimal),ha='center',va='top',fontsize=labelsize)
-    def drawwgd(self,wgd=None,cr='r',al=0.6,lw=4,addlegend=False,legendlabel=None):
-        if wgd is None:
+
+    def drawwgd(self,wgd=None,wgdobject=None,cr='r',al=0.6,lw=4,addlegend=False,legendlabel=None):
+        if wgd is None and wgdobject is None:
             return
         logging.info("Adding WGD")
-        df = pd.read_csv(wgd,header=0,index_col=None,sep='\t').drop_duplicates(subset=['WGD ID'])
+        if wgd is not None: df = pd.read_csv(wgd,header=0,index_col=None,sep='\t').drop_duplicates(subset=['WGD ID'])
+        else: df = wgdobject
         self.allnodes_ycoordinates = {**self.nodes_ycoordinates,**self.tips_ycoordinates}
         for fullsp,hcr,ind in zip(df["Full_Species"],df["90% HCR"],range(df.shape[0])):
             sps = fullsp.split(", ")
-            node = self.tree.common_ancestor(*sps)
+            try:
+                node = self.tree.common_ancestor(*sps)
+            except ValueError as e:
+                print("Error finding common ancestor for:",*sps)
+                continue
             lower,upper = [float(i)/100 for i in hcr.split('-')]
             ycoordi = self.allnodes_ycoordinates[node.name]
             if ind == 0 and addlegend:
