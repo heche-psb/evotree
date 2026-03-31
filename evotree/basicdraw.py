@@ -167,7 +167,11 @@ def getdepths_sizes(root):
     clades_size = {}
     clades_alltips = {}
     identifier = 0
+    node_map = {}
+    node_name_clade_map = {}
+    orig_node_name_nodelabel = {}
     for clade,depth in Depths.items():
+        orig_node_name = copy.deepcopy(clade).name
         if depth>=maxi_depth: maxi_depth = depth
         if clade.name is None:
             clade.name = "Depth_{}_ID_{}".format(depth,identifier)
@@ -176,6 +180,9 @@ def getdepths_sizes(root):
             if not clade.is_terminal():
                 clade.name = clade.name +"__" + "Depth_{}_ID_{}".format(depth,identifier)
                 identifier+=1
+        node_map[", ".join(sorted([tip.name for tip in clade.get_terminals()]))] = clade.name
+        node_name_clade_map[clade.name] = clade
+        orig_node_name_nodelabel[clade.name] = orig_node_name
         clade_ = copy.deepcopy(clade)
         clade_.collapse_all()
         size = len(clade_.clades)
@@ -187,7 +194,7 @@ def getdepths_sizes(root):
         else:
             depths_sizeordered[depth] += [(clade.name,size)]
             depths_sizeordered[depth] = sorted(depths_sizeordered[depth],key=lambda x:x[1])
-    return depths_sizes_dic,maxi_depth,depths_sizeordered,clades_size,clades_alltips
+    return depths_sizes_dic,maxi_depth,depths_sizeordered,clades_size,clades_alltips,node_map,node_name_clade_map,orig_node_name_nodelabel
 
 def findcladebyname(tree,name):
     return next(tree.find_clades(name))
@@ -200,7 +207,7 @@ class TreeBuilder:
         self.tree = tree
         self.root = tree.root
         self.defaultbrcolor = defaultbrcolor
-        self.root_depth_size_dic,self.maxi_depth,self.depths_sizeordered,self.clades_size,self.clades_alltips = getdepths_sizes(self.root)
+        self.root_depth_size_dic,self.maxi_depth,self.depths_sizeordered,self.clades_size,self.clades_alltips,self.node_map,self.node_name_clade_map,self.orig_node_name_nodelabel = getdepths_sizes(self.root)
         self.nodes = [node for node in tree.get_nonterminals()]
         self.tips = [tip for tip in tree.get_terminals()]
         self.checkdupids()
@@ -575,6 +582,15 @@ class TreeBuilder:
                 self.ax.plot((self.nodes_thetacoordinates[node.name],self.nodes_thetacoordinates[node.name]),(nodeuncertainty[1],nodeuncertainty[0]),lw=self.nulw,color=self.nuccolor,alpha=self.nucalpha)
         self.allnodes_thetacoordinates = {**self.allnodes_thetacoordinates,**self.nodes_thetacoordinates}
         self.allnodes_rcoordinates = {**self.allnodes_rcoordinates,**self.nodes_rcoordinates}
+
+    def findnode(self,*args):
+        mrca = self.tree.common_ancestor(*args)
+        children = [tip.name for tip in mrca.get_terminals()]
+        nodelabel = self.node_map[", ".join(sorted(children))]
+        node = self.node_name_clade_map[nodelabel]
+        orignodename = self.orig_node_name_nodelabel[nodelabel]
+        return nodelabel,node,orignodename
+
     def drawlinespolar(self,rbr=False):
         ## TODO Jagged joint point
         if self.userbranchcolor is None:
@@ -636,7 +652,6 @@ class TreeBuilder:
         center_y_pixels = bbox.y0 + bbox.height / 2
         center_theta, center_r = self.ax.transData.inverted().transform((center_x_pixels, center_y_pixels))
         self.ax.plot((x0-center_r,x1-center_r),(y0,y1),'k-', transform=self.ax.transData._b,lw=1)
-
 
     def drawscalepolar(self,plotfulllengthscale=False,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,scaletext=None,scaletextfontsize=4,scaletextcolor='k',scaletextoffset=0,fullscalelw=None,fullscalexticks=None,fullscalecolor='k',fullscalels='-',geoscaling=1,fullscalealpha=1,addgeo=False,addgeoline=False,addgeoreverse=False,fulltickscaler=2.5,fullscaletickcolor='k',fullscaleticklw=None,addfulltickline=False,geoalpha=1,geosaturation=1,geolw=None,addfulltickring=False,fullscaletickringcolors=[],fullscaletickringalphas=[],notick=False,geolowery=-0.035,geoheight=0.02,tickupper=0,ticklowery=-0.01,geolabelcolor='k',geofontsize=4,boundary_to_show=[],geotimetickyoffset=0.005,geolinealpha=1,geotickfontsize=None):
         self.scalecolor = scalecolor
@@ -774,7 +789,6 @@ class TreeBuilder:
                             drawn_numer += [left_bound]
                     break
                 left_bound = boundary
-
 
     def drawscale(self,plotfulllengthscale=False,adjusty=True,inipoint=(0,0),endpoint=(0,0),scalecolor='k',scalelw=None,scaletext=None,scaletextfontsize=4,scaletextcolor='k',scaletextoffset=0,fullscalelw=None,fullscaley=0,fullscalexticks=None,fullscalecolor='k',fullscaleticklw=None,fullscaletickcolor='k',fullscaletickheight=0.1,fullscaleticklabels=None,fullscaleticklabelsize=None,fullscaleticklabelcolor='k',fullscaleticklabeloffset=0.1,scaler_y=0.25,addgeo=False,geoscaling=1,geouppery=0.5,geolowery=0.1,boundary_to_show=[],geofontsize=None,geolabelcolor='k'):
         Ymin,Ymax = [],[]
@@ -1040,7 +1054,6 @@ class TreeBuilder:
             if quantitylegend:
                 showsizes = [0.25,0.5,0.75,1]
                 for ss in showsizes: self.ax.plot([],[],'o',markersize=ss*maxcirclesize,color='gray',label="{:.{}f}".format(ss*maxvaluescaler,decimal))
-
 
     def drawtrait(self,trait=(),xoffset=0.2,yoffset=0.2,labeloffset=0.2,usedata=(),traitobject=(),traitobjectname=(),traitcolor='k',scalingx=0.1,decimal=1,labelsize=None):
         if trait == () and traitobject == ():
